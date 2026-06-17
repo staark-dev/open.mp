@@ -246,6 +246,24 @@ void CefManager::Init(HMODULE hModule)
     CefString(&settings.log_file)                = logPath;
     settings.log_severity = LOGSEVERITY_VERBOSE;
 
+    // Apply critical switches to the global command line BEFORE CefInitialize reads it.
+    // OnBeforeCommandLineProcessing fires too late for crash reporter / sandbox init.
+    NUILog("Patching global command line before CefInitialize...");
+    CefRefPtr<CefCommandLine> cmdLine = CefCommandLine::GetGlobalCommandLine();
+    if (cmdLine)
+    {
+        cmdLine->AppendSwitch("disable-crash-reporter");
+        cmdLine->AppendSwitch("disable-gpu");
+        cmdLine->AppendSwitch("disable-gpu-compositing");
+        cmdLine->AppendSwitch("no-sandbox");
+        cmdLine->AppendSwitch("in-process-gpu");   // avoid separate GPU process
+        NUILog("Command line patched");
+    }
+    else
+    {
+        NUILog("WARNING: GetGlobalCommandLine returned null");
+    }
+
     NUILog("Calling CefInitialize...");
     CefRefPtr<NUICefApp> app = new NUICefApp();
     bool ok = CefInitialize(args, settings, app, nullptr);
