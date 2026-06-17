@@ -30,6 +30,8 @@ target_compile_definitions(libcef_dll_wrapper PUBLIC
     WIN32_LEAN_AND_MEAN
     NOMINMAX
     _WIN32_WINNT=0x0A00
+    UNICODE
+    _UNICODE
     WRAPPING_CEF_SHARED
 )
 
