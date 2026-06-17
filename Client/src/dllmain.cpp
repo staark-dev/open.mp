@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <string>
+#include <cstdio>
 #include "dx9_hook.hpp"
 #include "cef_manager.hpp"
 #include "rpc_receiver.hpp"
@@ -16,25 +17,41 @@ static std::string GetDllDir()
     return (pos != std::string::npos) ? s.substr(0, pos) : s;
 }
 
+static FILE* g_log = nullptr;
+
+static void Log(const char* msg)
+{
+    if (!g_log) return;
+    fprintf(g_log, "%s\n", msg);
+    fflush(g_log);
+}
+
 DWORD WINAPI MainThread(LPVOID)
 {
-    // 1. Init CEF immediately — connecting screen needs it
+    std::string logPath = GetDllDir() + "\\omp-nui-debug.log";
+    g_log = fopen(logPath.c_str(), "w");
+    Log("MainThread started");
+
+    Log("Calling CefManager::Init...");
     CefManager::Init(g_hModule);
+    Log("CefManager::Init returned");
 
-    // 2. Show local connecting screen right away (file://, no server needed)
-    CefManager::ShowConnecting(GetDllDir() + "\\nui-local");
+    std::string nuiLocal = GetDllDir() + "\\nui-local";
+    Log(("ShowConnecting: " + nuiLocal).c_str());
+    CefManager::ShowConnecting(nuiLocal);
+    Log("ShowConnecting returned");
 
-    // 3. Wait for GTA SA + SA-MP/OMP to fully initialize their D3D9 device
+    Log("Sleeping 3s for D3D9 init...");
     Sleep(3000);
 
-    // 4. Hook D3D9 Present so CEF overlays get rendered
+    Log("Installing DX9Hook...");
     DX9Hook::Install();
+    Log("DX9Hook installed");
 
-    // 5. Hook recvfrom to receive NUI RPCs from server
+    Log("Installing RpcReceiver...");
     RpcReceiver::Install();
+    Log("RpcReceiver installed — NUI ready");
 
-    // Connecting screen stays visible until server sends RPC 221 (NUIShow)
-    // or until connection fails — handled via postMessage from rpc_receiver
     return 0;
 }
 
