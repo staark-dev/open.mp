@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(omp-nui-client CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+# CEF 89 (Alloy runtime) builds with C++17 — only CEF 149 needed C++20.
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)

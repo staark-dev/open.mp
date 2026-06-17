@@ -403,8 +403,7 @@ void CefManager::ShowNUI(const std::string& resource,
     nb->client   = new NUIClient(nb.get());
 
     CefWindowInfo wi;
-    wi.SetAsWindowless(nullptr);    // OSR — no native window
-    wi.runtime_style = CEF_RUNTIME_STYLE_ALLOY;  // windowless requires Alloy in CEF 149
+    wi.SetAsWindowless(nullptr);    // OSR — no native window (Alloy runtime default in CEF 89)
 
     CefBrowserSettings bs;
     bs.windowless_frame_rate = 60;
@@ -494,7 +493,6 @@ void CefManager::ShowConnecting(const std::string& localResourcesDir)
 
     CefWindowInfo wi;
     wi.SetAsWindowless(nullptr);
-    wi.runtime_style = CEF_RUNTIME_STYLE_ALLOY;  // windowless requires Alloy in CEF 149
 
     CefBrowserSettings bs;
     bs.windowless_frame_rate = 30;  // 30fps e suficient pentru un loading screen
