@@ -62,6 +62,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     target_compile_definitions(NUI PRIVATE
         OMP_VERSION_MAJOR=1 OMP_VERSION_MINOR=5 OMP_VERSION_PATCH=8
         CPPHTTPLIB_NO_EXCEPTIONS
+        HAVE_STDINT_H   # prevents pawn amx.h from redefining int32_t/uint32_t
+        HAVE_INTTYPES_H
     )
     if(UNIX)
         target_link_libraries(NUI PRIVATE pthread)
