@@ -211,7 +211,8 @@ void NUIComponent::onLoad(ICore* core)
 		// Inject __NUI_TOKEN__ and __NUI_BASE_URL__ into HTML head
 		if (mime.rfind("text/html", 0) == 0)
 		{
-			std::string token = req.get_header_value("X-NUI-Token");
+			// CEF 149: token is passed as ?nui_token= query param (CefRequest API removed)
+			std::string token = req.has_param("nui_token") ? req.get_param_value("nui_token") : "";
 			std::string inj = "<script>"
 				"window.__NUI_BASE_URL__='" + httpBaseUrl_ + "';"
 				+ (token.empty() ? "" : "window.__NUI_TOKEN__='" + token + "';")

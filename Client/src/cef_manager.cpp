@@ -95,7 +95,7 @@ void NUIBrowser::UploadToTexture(IDirect3DDevice9* dev)
     {
         if (texture) texture->Release();
         if (FAILED(dev->CreateTexture(w, h, 1, D3DUSAGE_DYNAMIC,
-                                       D3DFMT_A8R8B8G8, D3DPOOL_DEFAULT, &texture, nullptr)))
+                                       D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, nullptr)))
         {
             texture = nullptr;
             return;
@@ -242,16 +242,11 @@ void CefManager::ShowNUI(const std::string& resource,
     // URL: {baseUrl}/nui/{resource}/index.html
     std::string url = baseUrl + "/nui/" + resource + "/index.html";
 
-    // Attach token so the HTTP server can inject it into <head>
-    // The server reads X-NUI-Token from the initial request header.
-    // We set it via a custom request:
-    CefRefPtr<CefRequest> req = CefRequest::Create();
-    req->SetURL(url);
-    CefRequest::HeaderMap headers;
-    headers.insert({ "X-NUI-Token", token });
-    req->SetHeaderMap(headers);
+    // Attach token in URL query so the server can inject window.__NUI_TOKEN__
+    // (CEF 149 removed CefRequest overload of CreateBrowserSync)
+    std::string urlWithToken = url + "?nui_token=" + token;
 
-    nb->browser = CefBrowserHost::CreateBrowserSync(wi, nb->client, req, bs, nullptr, nullptr);
+    nb->browser = CefBrowserHost::CreateBrowserSync(wi, nb->client, urlWithToken, bs, nullptr, nullptr);
     g_browsers[resource] = nb;
 }
 

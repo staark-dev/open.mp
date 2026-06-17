@@ -6,6 +6,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     # ── STANDALONE BUILD (no Conan, no full server) ───────────────────────────
 
     project(omp-nui VERSION 1.0.0 LANGUAGES CXX)
+
+    # CMake 4.0+ removed support for cmake_minimum_required < 3.5 in subprojects.
+    # The open.mp SDK ships an old GLM that triggers this. Relax the check.
+    if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+        set(CMAKE_POLICY_VERSION_MINIMUM "3.5")
+    endif()
     set(CMAKE_CXX_STANDARD 17)
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
