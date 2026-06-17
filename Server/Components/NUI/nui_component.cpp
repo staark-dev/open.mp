@@ -95,15 +95,30 @@ void NUIComponent::onLoad(ICore* core)
 	core_->getEventDispatcher().addEventHandler(this);
 	core_->getPlayers().getPlayerConnectDispatcher().addEventHandler(this);
 
-	// Determine the public HTTP base URL for clients.
-	// Priority: network.public_addr from config → fallback to "127.0.0.1"
+	// Read nui.port from config.json (default: 7778)
+	{
+		int* portCfg = core_->getConfig().getInt("nui.port");
+		if (portCfg && *portCfg > 0 && *portCfg <= 65535)
+			httpPort_ = *portCfg;
+	}
+
+	// Read nui.base_url from config.json — explicit override wins.
+	// Fallback: auto-build from network.public_addr + nui.port.
 	// Pawn can override at runtime with NUI_SetBaseURL().
 	{
-		StringView publicAddr = core_->getConfig().getString("network.public_addr");
-		std::string host = publicAddr.empty() ? "127.0.0.1" : std::string(publicAddr);
-		httpBaseUrl_ = "http://" + host + ":7778";
+		StringView baseUrlCfg = core_->getConfig().getString("nui.base_url");
+		if (!baseUrlCfg.empty())
+		{
+			httpBaseUrl_ = std::string(baseUrlCfg);
+		}
+		else
+		{
+			StringView publicAddr = core_->getConfig().getString("network.public_addr");
+			std::string host = publicAddr.empty() ? "127.0.0.1" : std::string(publicAddr);
+			httpBaseUrl_ = "http://" + host + ":" + std::to_string(httpPort_);
+		}
 	}
-	core_->printLn("[NUI] HTTP base URL: %s", httpBaseUrl_.c_str());
+	core_->printLn("[NUI] port=%d  base_url=%s", httpPort_, httpBaseUrl_.c_str());
 
 	// /ping — health check
 	httpServer_.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
@@ -213,10 +228,10 @@ void NUIComponent::onLoad(ICore* core)
 
 	running_ = true;
 	httpThread_ = std::thread([this]() {
-		httpServer_.listen("0.0.0.0", 7778);
+		httpServer_.listen("0.0.0.0", httpPort_);
 	});
 
-	core_->printLn("[NUI] HTTP server started on port 7778");
+	core_->printLn("[NUI] HTTP server started on port %d", httpPort_);
 }
 
 // ── Component lifecycle ───────────────────────────────────────────────────────

@@ -55,7 +55,8 @@ public:
 	httplib::Server httpServer_;
 	std::thread httpThread_;
 	std::atomic<bool> running_ { false };
-	std::string httpBaseUrl_;  // e.g. "http://185.23.45.67:7778"
+	int httpPort_ = 7778;        // nui.port in config.json
+	std::string httpBaseUrl_;    // nui.base_url or auto-built from nui.port + network.public_addr
 
 	// Loaded Pawn scripts (for firing OnNUIMessage)
 	std::vector<IPawnScript*> scripts_;
