@@ -17,7 +17,7 @@ namespace NetCode
 {
 namespace RPC
 {
-	// RPC ID 220 — reserved for omp-nui server→client message
+	// RPC 220 — server→client: send JSON message to a NUI resource
 	struct NUIMessage : NetworkPacketBase<220, NetworkPacketType::RPC, OrderingChannel_SyncRPC>
 	{
 		HybridString<64> Resource;
@@ -33,6 +33,41 @@ namespace RPC
 		{
 			bs.writeDynStr8(Resource);
 			bs.writeDynStr32(JsonData);
+		}
+	};
+
+	// RPC 221 — server→client: open CEF browser for a NUI resource
+	struct NUIShow : NetworkPacketBase<221, NetworkPacketType::RPC, OrderingChannel_SyncRPC>
+	{
+		HybridString<64> Resource;
+		HybridString<64> Token;
+
+		bool read(NetworkBitStream& bs)
+		{
+			bs.readDynStr8(Resource);
+			return bs.readDynStr8(Token);
+		}
+
+		void write(NetworkBitStream& bs) const
+		{
+			bs.writeDynStr8(Resource);
+			bs.writeDynStr8(Token);
+		}
+	};
+
+	// RPC 222 — server→client: hide/close CEF browser for a NUI resource
+	struct NUIHide : NetworkPacketBase<222, NetworkPacketType::RPC, OrderingChannel_SyncRPC>
+	{
+		HybridString<64> Resource;
+
+		bool read(NetworkBitStream& bs)
+		{
+			return bs.readDynStr8(Resource);
+		}
+
+		void write(NetworkBitStream& bs) const
+		{
+			bs.writeDynStr8(Resource);
 		}
 	};
 }

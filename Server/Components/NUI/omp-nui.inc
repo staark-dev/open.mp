@@ -1,33 +1,27 @@
 #if defined _omp_nui_included
-	#endinput
+    #endinput
 #endif
 #define _omp_nui_included
 
-/**
- * Register a NUI resource so the HTTP server can serve its files.
- *
- * @param name     Short identifier for this resource (e.g. "hud")
- * @param path     Filesystem path to the folder containing the resource files
- *                 (relative to the server working directory, e.g. "nui/hud")
- * @return         true on success
- *
- * After registration, files are accessible at:
- *   http://<server>:7778/nui/<name>/<file>
- */
+// Register a folder to be served at http://localhost:7778/nui/{name}/
+// path is relative to server working dir (e.g. "nui/hud")
 native bool:NUI_CreateResource(const name[], const path[]);
 
-/**
- * Send a JSON message to a player's NUI.
- *
- * @param playerid   Target player
- * @param resource   Resource name registered with NUI_CreateResource
- * @param json       JSON string dispatched as a window 'message' event in the browser
- * @return           true if the RPC was sent successfully
- *
- * In the browser (JavaScript):
- *   window.addEventListener('message', function(e) {
- *       var d = e.data;
- *       // d.type, d.value, ...
- *   });
- */
+// Send a JSON string to a player's NUI — triggers window.addEventListener('message')
 native bool:NUI_SendMessage(playerid, const resource[], const json[]);
+
+// Open the CEF browser overlay for a player (NUIShow RPC → handled by Bloc 2 client DLL)
+// Also generates a per-player auth token sent with the RPC
+native bool:NUI_Show(playerid, const resource[]);
+
+// Close/hide the CEF browser overlay for a player
+native bool:NUI_Hide(playerid, const resource[]);
+
+// Fired on the server when a player's HTML does:
+//   fetch('http://localhost:7778/nui/callback/{resource}', {
+//       method: 'POST',
+//       headers: { 'X-NUI-Token': window.__NUI_TOKEN__ },
+//       body: JSON.stringify({ action: 'login', user: '...', pass: '...' })
+//   })
+// data[] contains the raw JSON body
+forward OnNUIMessage(playerid, const resource[], const data[]);

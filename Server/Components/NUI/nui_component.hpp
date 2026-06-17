@@ -14,9 +14,13 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <queue>
+#include <algorithm>
 #include <unordered_map>
+#include <vector>
 #include <fstream>
 #include <string>
+#include <random>
 
 using namespace Impl;
 
@@ -27,9 +31,15 @@ struct INUIComponent : public IComponent
 	PROVIDE_UID(NUIComponent_UID)
 	virtual void createResource(StringView name, StringView path) = 0;
 	virtual bool sendMessage(IPlayer& player, StringView resource, StringView json) = 0;
+	virtual bool showNUI(IPlayer& player, StringView resource) = 0;
+	virtual bool hideNUI(IPlayer& player, StringView resource) = 0;
 };
 
-class NUIComponent final : public INUIComponent, public PawnEventHandler
+class NUIComponent final
+	: public INUIComponent
+	, public PawnEventHandler
+	, public CoreEventHandler
+	, public PlayerConnectEventHandler
 {
 public:
 	static NUIComponent* s_instance;
@@ -37,16 +47,46 @@ public:
 	ICore* core_ = nullptr;
 	IPawnComponent* pawn_ = nullptr;
 
+	// Registered NUI resources: name → filesystem path
 	std::unordered_map<std::string, std::string> resources_;
 	std::mutex resourcesMutex_;
 
+	// HTTP server
 	httplib::Server httpServer_;
 	std::thread httpThread_;
 	std::atomic<bool> running_ { false };
 
-	// Raw AMX natives — registered directly with each script
+	// Loaded Pawn scripts (for firing OnNUIMessage)
+	std::vector<IPawnScript*> scripts_;
+	std::mutex scriptsMutex_;
+
+	// Player auth tokens for POST callbacks
+	std::unordered_map<int, std::string> playerTokens_;  // playerid → token
+	std::unordered_map<std::string, int> tokenPlayers_;  // token → playerid
+	std::mutex tokensMutex_;
+
+	// Cross-thread callback queue: HTTP thread pushes, game thread drains on tick
+	struct PendingCallback
+	{
+		int playerid;
+		std::string resource;
+		std::string data;
+	};
+	std::queue<PendingCallback> pendingCallbacks_;
+	std::mutex callbackMutex_;
+
+	// Token helpers
+	std::string generateToken();
+	std::string getOrCreateToken(int playerid);
+
+	// Fire OnNUIMessage into all loaded scripts (game thread only)
+	void fireOnNUIMessage(int playerid, const std::string& resource, const std::string& data);
+
+	// AMX natives
 	static cell AMX_NATIVE_CALL n_NUI_CreateResource(AMX* amx, const cell* params);
 	static cell AMX_NATIVE_CALL n_NUI_SendMessage(AMX* amx, const cell* params);
+	static cell AMX_NATIVE_CALL n_NUI_Show(AMX* amx, const cell* params);
+	static cell AMX_NATIVE_CALL n_NUI_Hide(AMX* amx, const cell* params);
 
 	// IComponent
 	StringView componentName() const override { return "NUI"; }
@@ -60,8 +100,17 @@ public:
 	// INUIComponent
 	void createResource(StringView name, StringView path) override;
 	bool sendMessage(IPlayer& player, StringView resource, StringView json) override;
+	bool showNUI(IPlayer& player, StringView resource) override;
+	bool hideNUI(IPlayer& player, StringView resource) override;
 
-	// PawnEventHandler — called for each AMX script that loads
+	// PawnEventHandler
 	void onAmxLoad(IPawnScript& script) override;
-	void onAmxUnload(IPawnScript& script) override { }
+	void onAmxUnload(IPawnScript& script) override;
+
+	// CoreEventHandler — drains callback queue on every server tick
+	void onTick(Microseconds elapsed, TimePoint now) override;
+
+	// PlayerConnectEventHandler — token cleanup on disconnect
+	void onPlayerConnect(IPlayer& player) override { }
+	void onPlayerDisconnect(IPlayer& player, PeerDisconnectReason reason) override;
 };
