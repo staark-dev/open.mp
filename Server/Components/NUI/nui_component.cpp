@@ -281,6 +281,7 @@ void NUIComponent::free()
 void NUIComponent::onPlayerDisconnect(IPlayer& player, PeerDisconnectReason reason)
 {
 	int playerid = player.getID();
+	visibleNUIs_.erase(playerid);
 	std::lock_guard<std::mutex> lock(tokensMutex_);
 	auto it = playerTokens_.find(playerid);
 	if (it != playerTokens_.end())
@@ -343,19 +344,35 @@ bool NUIComponent::sendMessage(IPlayer& player, StringView resource, StringView 
 
 bool NUIComponent::showNUI(IPlayer& player, StringView resource)
 {
+	std::string res(resource);
 	std::string token = getOrCreateToken(player.getID());
 	NetCode::RPC::NUIShow msg;
 	msg.Resource = resource;
 	msg.Token   = StringView(token.c_str(), token.size());
 	msg.BaseURL = StringView(httpBaseUrl_.c_str(), httpBaseUrl_.size());
-	return PacketHelper::send(msg, player);
+	bool ok = PacketHelper::send(msg, player);
+	if (ok)
+		visibleNUIs_[player.getID()].insert(res);
+	return ok;
 }
 
 bool NUIComponent::hideNUI(IPlayer& player, StringView resource)
 {
+	std::string res(resource);
 	NetCode::RPC::NUIHide msg;
 	msg.Resource = resource;
-	return PacketHelper::send(msg, player);
+	bool ok = PacketHelper::send(msg, player);
+	if (ok)
+		visibleNUIs_[player.getID()].erase(res);
+	return ok;
+}
+
+bool NUIComponent::isVisible(IPlayer& player, StringView resource) const
+{
+	auto it = visibleNUIs_.find(player.getID());
+	if (it == visibleNUIs_.end())
+		return false;
+	return it->second.count(std::string(resource)) > 0;
 }
 
 // ── PawnEventHandler ──────────────────────────────────────────────────────────
@@ -368,6 +385,7 @@ void NUIComponent::onAmxLoad(IPawnScript& script)
 		{ "NUI_Show",           NUIComponent::n_NUI_Show },
 		{ "NUI_Hide",           NUIComponent::n_NUI_Hide },
 		{ "NUI_SetBaseURL",     NUIComponent::n_NUI_SetBaseURL },
+		{ "NUI_IsVisible",      NUIComponent::n_NUI_IsVisible },
 		{ nullptr, nullptr }
 	};
 	script.Register(natives, -1);
@@ -474,6 +492,25 @@ cell AMX_NATIVE_CALL NUIComponent::n_NUI_SetBaseURL(AMX* amx, const cell* params
 	s_instance->httpBaseUrl_ = std::string(url);
 	s_instance->core_->printLn("[NUI] Base URL updated: %s", url);
 	return 1;
+}
+
+// native bool:NUI_IsVisible(playerid, const resource[]);
+cell AMX_NATIVE_CALL NUIComponent::n_NUI_IsVisible(AMX* amx, const cell* params)
+{
+	if (!s_instance || !s_instance->pawn_) return 0;
+	if (params[0] < 2 * (cell)sizeof(cell)) return 0;
+	IPawnScript* script = s_instance->pawn_->getScript(amx);
+	if (!script) return 0;
+
+	int playerid = (int)params[1];
+	cell* resourcePtr = nullptr;
+	script->GetAddr(params[2], &resourcePtr);
+	char resource[64] = {};
+	script->GetString(resource, resourcePtr, false, sizeof(resource) - 1);
+
+	IPlayer* player = s_instance->core_->getPlayers().get(playerid);
+	if (!player) return 0;
+	return s_instance->isVisible(*player, StringView(resource)) ? 1 : 0;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────

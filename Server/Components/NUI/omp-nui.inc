@@ -17,6 +17,9 @@ native bool:NUI_Show(playerid, const resource[]);
 // Close/hide the CEF browser overlay for a player
 native bool:NUI_Hide(playerid, const resource[]);
 
+// Returns true if the CEF browser for resource is currently open for player
+native bool:NUI_IsVisible(playerid, const resource[]);
+
 // Override the HTTP base URL sent to clients in the NUI_Show RPC.
 // Default: auto-detected from network.public_addr in config.json.
 // Call this in OnGameModeInit() when hosting on a VPS:

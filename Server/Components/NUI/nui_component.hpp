@@ -17,6 +17,7 @@
 #include <queue>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <fstream>
 #include <string>
@@ -33,6 +34,7 @@ struct INUIComponent : public IComponent
 	virtual bool sendMessage(IPlayer& player, StringView resource, StringView json) = 0;
 	virtual bool showNUI(IPlayer& player, StringView resource) = 0;
 	virtual bool hideNUI(IPlayer& player, StringView resource) = 0;
+	virtual bool isVisible(IPlayer& player, StringView resource) const = 0;
 };
 
 class NUIComponent final
@@ -62,6 +64,9 @@ public:
 	std::vector<IPawnScript*> scripts_;
 	std::mutex scriptsMutex_;
 
+	// Visible NUI resources per player (game thread only — no mutex needed)
+	std::unordered_map<int, std::unordered_set<std::string>> visibleNUIs_;
+
 	// Player auth tokens for POST callbacks
 	std::unordered_map<int, std::string> playerTokens_;  // playerid → token
 	std::unordered_map<std::string, int> tokenPlayers_;  // token → playerid
@@ -90,6 +95,7 @@ public:
 	static cell AMX_NATIVE_CALL n_NUI_Show(AMX* amx, const cell* params);
 	static cell AMX_NATIVE_CALL n_NUI_Hide(AMX* amx, const cell* params);
 	static cell AMX_NATIVE_CALL n_NUI_SetBaseURL(AMX* amx, const cell* params);
+	static cell AMX_NATIVE_CALL n_NUI_IsVisible(AMX* amx, const cell* params);
 
 	// IComponent
 	StringView componentName() const override { return "NUI"; }
@@ -105,6 +111,7 @@ public:
 	bool sendMessage(IPlayer& player, StringView resource, StringView json) override;
 	bool showNUI(IPlayer& player, StringView resource) override;
 	bool hideNUI(IPlayer& player, StringView resource) override;
+	bool isVisible(IPlayer& player, StringView resource) const override;
 
 	// PawnEventHandler
 	void onAmxLoad(IPawnScript& script) override;
