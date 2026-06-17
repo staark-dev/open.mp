@@ -50,3 +50,9 @@ if(BUILD_TEST_COMPONENTS)
 endif()
 
 add_subdirectory(CustomModels)
+
+# NUI
+option(BUILD_NUI_COMPONENT "Whether to build the NUI component" ON)
+if(BUILD_NUI_COMPONENT)
+	add_subdirectory(NUI)
+endif()
