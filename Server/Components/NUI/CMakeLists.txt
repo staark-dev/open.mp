@@ -28,7 +28,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     target_compile_options(OMP-SDK INTERFACE -msse2 -mfpmath=sse)
     target_include_directories(OMP-SDK INTERFACE "${OMP_ROOT}/SDK/include")
 
-    add_library(OMP-Network STATIC "${OMP_ROOT}/Shared/Network/bitstream.cpp")
+    add_library(OMP-Network STATIC
+        "${OMP_ROOT}/Shared/Network/bitstream.cpp"
+        "${OMP_ROOT}/Shared/Network/Encoding/str_compress.cpp"
+        "${OMP_ROOT}/Shared/Network/Encoding/huffman_tree.cpp"
+    )
     target_link_libraries(OMP-Network PUBLIC OMP-SDK)
     target_include_directories(OMP-Network PUBLIC "${OMP_ROOT}/Shared/Network")
     set_property(TARGET OMP-Network PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -53,6 +57,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     if(UNIX)
         target_link_libraries(NUI PRIVATE pthread)
         target_compile_options(NUI PRIVATE -fvisibility=hidden)
+    endif()
+    if(WIN32)
+        target_link_libraries(NUI PRIVATE ws2_32)
+        target_compile_definitions(NUI PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0601)
     endif()
     set_property(TARGET NUI PROPERTY OUTPUT_NAME "NUI")
     set_property(TARGET NUI PROPERTY PREFIX "")

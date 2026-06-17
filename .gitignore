@@ -313,3 +313,5 @@ cmake_install.cmake
 *-targets.cmake
 CTestTestfile.cmake
 *Config.cmake
+build_nui_win/
+omp-nui-v1.0.0-windows-x86.zip

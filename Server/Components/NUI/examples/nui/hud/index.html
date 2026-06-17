@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background: transparent; overflow: hidden; font-family: Arial; }
+  #hud {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    color: white;
+    text-shadow: 1px 1px 3px black;
+    font-size: 20px;
+    pointer-events: none;
+    user-select: none;
+  }
+  .bar-wrap { margin-bottom: 6px; }
+  .bar-label { font-size: 13px; margin-bottom: 2px; }
+  .bar { width: 180px; height: 6px; background: rgba(0,0,0,0.5); border-radius: 3px; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  #hp-fill  { background: #e74c3c; width: 100%; }
+  #arm-fill { background: #3498db; width: 0%; }
+  #money { color: #2ecc71; font-size: 16px; font-weight: bold; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="bar-wrap">
+    <div class="bar-label">HP: <span id="hp-val">100</span></div>
+    <div class="bar"><div class="bar-fill" id="hp-fill"></div></div>
+  </div>
+  <div class="bar-wrap">
+    <div class="bar-label">Armura: <span id="arm-val">0</span></div>
+    <div class="bar"><div class="bar-fill" id="arm-fill"></div></div>
+  </div>
+  <div id="money">$ <span id="money-val">0</span></div>
+</div>
+<script>
+  function setHealth(v) {
+    document.getElementById('hp-val').textContent = v;
+    document.getElementById('hp-fill').style.width = Math.max(0, Math.min(100, v)) + '%';
+  }
+  function setArmor(v) {
+    document.getElementById('arm-val').textContent = v;
+    document.getElementById('arm-fill').style.width = Math.max(0, Math.min(100, v)) + '%';
+  }
+  function setMoney(v) {
+    document.getElementById('money-val').textContent = Number(v).toLocaleString();
+  }
+
+  // Primeste mesaje de la clientul C++ (via postMessage din CEF)
+  window.addEventListener('message', function(e) {
+    var d = e.data;
+    if (!d || !d.type) return;
+    if (d.type === 'setHealth') setHealth(d.value);
+    if (d.type === 'setArmor')  setArmor(d.value);
+    if (d.type === 'setMoney')  setMoney(d.value);
+  });
+
+  console.log('[omp-nui] HUD gata');
+</script>
+</body>
+</html>
