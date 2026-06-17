@@ -174,29 +174,46 @@ static std::mutex g_browserMutex;
 
 // ── CefManager ───────────────────────────────────────────────────────────────
 
+// Declared in dllmain.cpp — available throughout the DLL
+extern void NUILog(const char*);
+
 void CefManager::Init(HMODULE hModule)
 {
+    // chrome_elf must be initialised before libcef; load it explicitly
+    // in case the DLL loader didn't guarantee ordering
+    NUILog("Loading chrome_elf.dll...");
+    LoadLibraryA("chrome_elf.dll");
+    NUILog("chrome_elf.dll loaded");
+
     char exePath[MAX_PATH] = {};
     GetModuleFileNameA(hModule, exePath, MAX_PATH);
     PathRemoveFileSpecA(exePath);
-    std::string helperPath = std::string(exePath) + "\\omp-nui-helper.exe";
+    std::string dir(exePath);
+    NUILog(("CEF base dir: " + dir).c_str());
 
+    std::string helperPath    = dir + "\\omp-nui-helper.exe";
+    std::string resourcesPath = dir + "\\Resources";
+    std::string logPath       = dir + "\\omp-nui-cef.log";
+    NUILog(("helper:    " + helperPath).c_str());
+    NUILog(("resources: " + resourcesPath).c_str());
+
+    NUILog("Building CefMainArgs...");
     CefMainArgs args(GetModuleHandleA(nullptr));
+
+    NUILog("Building CefSettings...");
     CefSettings settings;
-    settings.multi_threaded_message_loop  = true;   // CEF runs its own UI thread
-    settings.windowless_rendering_enabled = true;   // OSR mode — no native window
+    settings.multi_threaded_message_loop  = true;
+    settings.windowless_rendering_enabled = true;
     settings.no_sandbox                   = true;
     CefString(&settings.browser_subprocess_path) = helperPath;
+    CefString(&settings.resources_dir_path)      = resourcesPath;
+    CefString(&settings.locales_dir_path)        = resourcesPath + "\\locales";
+    CefString(&settings.log_file)                = logPath;
+    settings.log_severity = LOGSEVERITY_VERBOSE;
 
-    std::string resourcesPath = std::string(exePath) + "\\Resources";
-    CefString(&settings.resources_dir_path)  = resourcesPath;
-    CefString(&settings.locales_dir_path)    = resourcesPath + "\\locales";
-
-    // Log to file next to the DLL
-    CefString(&settings.log_file) = std::string(exePath) + "\\omp-nui-cef.log";
-    settings.log_severity = LOGSEVERITY_WARNING;
-
-    CefInitialize(args, settings, nullptr, nullptr);
+    NUILog("Calling CefInitialize...");
+    bool ok = CefInitialize(args, settings, nullptr, nullptr);
+    NUILog(ok ? "CefInitialize returned TRUE" : "CefInitialize returned FALSE");
 }
 
 void CefManager::Shutdown()

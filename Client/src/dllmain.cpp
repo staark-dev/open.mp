@@ -19,38 +19,57 @@ static std::string GetDllDir()
 
 static FILE* g_log = nullptr;
 
-static void Log(const char* msg)
+void NUILog(const char* msg)
 {
     if (!g_log) return;
     fprintf(g_log, "%s\n", msg);
     fflush(g_log);
 }
 
+// Isolated function so __try can coexist with C++ stack objects in caller
+static DWORD TryCefInit(HMODULE hMod)
+{
+    __try {
+        CefManager::Init(hMod);
+        return 0;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return GetExceptionCode();
+    }
+}
+
 DWORD WINAPI MainThread(LPVOID)
 {
     std::string logPath = GetDllDir() + "\\omp-nui-debug.log";
     g_log = fopen(logPath.c_str(), "w");
-    Log("MainThread started");
+    NUILog("MainThread started");
 
-    Log("Calling CefManager::Init...");
-    CefManager::Init(g_hModule);
-    Log("CefManager::Init returned");
+    NUILog("Calling CefManager::Init...");
+    DWORD exCode = TryCefInit(g_hModule);
+    if (exCode != 0)
+    {
+        char buf[64];
+        sprintf_s(buf, sizeof(buf), "CefInitialize CRASHED: 0x%08X", exCode);
+        NUILog(buf);
+        return 1;
+    }
+    NUILog("CefManager::Init returned OK");
 
     std::string nuiLocal = GetDllDir() + "\\nui-local";
-    Log(("ShowConnecting: " + nuiLocal).c_str());
+    NUILog(("ShowConnecting: " + nuiLocal).c_str());
     CefManager::ShowConnecting(nuiLocal);
-    Log("ShowConnecting returned");
+    NUILog("ShowConnecting returned");
 
-    Log("Sleeping 3s for D3D9 init...");
+    NUILog("Sleeping 3s for D3D9 init...");
     Sleep(3000);
 
-    Log("Installing DX9Hook...");
+    NUILog("Installing DX9Hook...");
     DX9Hook::Install();
-    Log("DX9Hook installed");
+    NUILog("DX9Hook installed");
 
-    Log("Installing RpcReceiver...");
+    NUILog("Installing RpcReceiver...");
     RpcReceiver::Install();
-    Log("RpcReceiver installed — NUI ready");
+    NUILog("RpcReceiver installed — NUI ready");
 
     return 0;
 }
