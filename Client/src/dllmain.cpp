@@ -44,15 +44,15 @@ DWORD WINAPI MainThread(LPVOID)
     g_log = fopen(logPath.c_str(), "w");
     NUILog("MainThread started");
 
-    // CEF is initialized on the first D3D9 Present call (render/main thread)
-    // to avoid LOG(FATAL) from CEF running on a worker thread.
-
-    NUILog("Sleeping 3s for D3D9 init...");
-    Sleep(3000);
-
-    NUILog("Installing DX9Hook...");
+    // Hook IDirect3D9::CreateDevice immediately so we catch GTA SA's device
+    // creation (which happens after WinMain starts, well after our DLL loads).
+    NUILog("Installing DX9Hook (CreateDevice intercept)...");
     DX9Hook::Install();
     NUILog("DX9Hook installed");
+
+    // Wait for SA-MP to load before hooking recvfrom in its IAT
+    NUILog("Waiting 5s for samp.dll to load...");
+    Sleep(5000);
 
     NUILog("Installing RpcReceiver...");
     RpcReceiver::Install();

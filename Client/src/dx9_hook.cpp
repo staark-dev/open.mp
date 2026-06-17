@@ -2,32 +2,27 @@
 #include <windows.h>
 #include <d3d9.h>
 #include <string>
+#include <atomic>
 #include "dx9_hook.hpp"
 #include "cef_manager.hpp"
 
 extern HMODULE g_hModule;
 extern void    NUILog(const char*);
 
-static std::string GetModuleDir(HMODULE hMod)
-{
-    char path[MAX_PATH] = {};
-    GetModuleFileNameA(hMod, path, MAX_PATH);
-    std::string s(path);
-    auto pos = s.rfind('\\');
-    return (pos != std::string::npos) ? s.substr(0, pos) : s;
-}
-
-static bool s_cefStarted = false;
-
 // IDirect3DDevice9 vtable indices
-static constexpr int VTX_RESET   = 16;
-static constexpr int VTX_PRESENT = 17;
+static constexpr int VTX_RESET          = 16;
+static constexpr int VTX_PRESENT        = 17;
+// IDirect3D9 vtable index
+static constexpr int VTX_CREATE_DEVICE  = 16;
 
-using Reset_t   = HRESULT(WINAPI*)(IDirect3DDevice9*, D3DPRESENT_PARAMETERS*);
-using Present_t = HRESULT(WINAPI*)(IDirect3DDevice9*, const RECT*, const RECT*, HWND, const RGNDATA*);
+using Reset_t         = HRESULT(WINAPI*)(IDirect3DDevice9*, D3DPRESENT_PARAMETERS*);
+using Present_t       = HRESULT(WINAPI*)(IDirect3DDevice9*, const RECT*, const RECT*, HWND, const RGNDATA*);
+using CreateDevice_t  = HRESULT(WINAPI*)(IDirect3D9*, UINT, D3DDEVTYPE, HWND, DWORD,
+                                          D3DPRESENT_PARAMETERS*, IDirect3DDevice9**);
 
-static Reset_t   oReset   = nullptr;
-static Present_t oPresent = nullptr;
+static Reset_t        oReset        = nullptr;
+static Present_t      oPresent      = nullptr;
+static CreateDevice_t oCreateDevice = nullptr;
 
 // ── vtable patch helper ───────────────────────────────────────────────────────
 
@@ -42,9 +37,29 @@ static void PatchVtable(void** vtable, int index, void* hook, void** original)
 
 // ── Hooked Present ────────────────────────────────────────────────────────────
 
+static std::atomic<bool> s_cefStarted { false };
+
+static std::string GetModuleDir(HMODULE hMod)
+{
+    char path[MAX_PATH] = {};
+    GetModuleFileNameA(hMod, path, MAX_PATH);
+    std::string s(path);
+    auto pos = s.rfind('\\');
+    return (pos != std::string::npos) ? s.substr(0, pos) : s;
+}
+
 static HRESULT WINAPI hkPresent(IDirect3DDevice9* pDevice,
     const RECT* pSrc, const RECT* pDst, HWND hWnd, const RGNDATA* pDirty)
 {
+    bool expected = false;
+    if (s_cefStarted.compare_exchange_strong(expected, true))
+    {
+        NUILog("First Present: initializing CEF on render thread...");
+        CefManager::Init(g_hModule);
+        NUILog("CEF init done; showing connecting screen");
+        CefManager::ShowConnecting(GetModuleDir(g_hModule) + "\\nui-local");
+        NUILog("ShowConnecting done");
+    }
     DX9Hook::OnPresent(pDevice);
     return oPresent(pDevice, pSrc, pDst, hWnd, pDirty);
 }
@@ -57,101 +72,72 @@ static HRESULT WINAPI hkReset(IDirect3DDevice9* pDevice, D3DPRESENT_PARAMETERS* 
     return oReset(pDevice, pp);
 }
 
+// ── Hook device vtable once we have a real device ────────────────────────────
+
+static std::atomic<bool> s_deviceHooked { false };
+
+static void HookDevice(IDirect3DDevice9* pDevice)
+{
+    bool expected = false;
+    if (!s_deviceHooked.compare_exchange_strong(expected, true)) return;
+
+    void** vtable = *reinterpret_cast<void***>(pDevice);
+    char buf[128];
+    sprintf_s(buf, sizeof(buf), "Hooking device vtable=%p Present[17]=%p Reset[16]=%p",
+              vtable, vtable[VTX_PRESENT], vtable[VTX_RESET]);
+    NUILog(buf);
+    PatchVtable(vtable, VTX_PRESENT, (void*)hkPresent, (void**)&oPresent);
+    PatchVtable(vtable, VTX_RESET,   (void*)hkReset,   (void**)&oReset);
+    NUILog("Device vtable patched");
+}
+
+// ── Hooked IDirect3D9::CreateDevice ──────────────────────────────────────────
+
+static HRESULT WINAPI hkCreateDevice(
+    IDirect3D9* pD3D, UINT Adapter, D3DDEVTYPE DeviceType,
+    HWND hFocusWindow, DWORD BehaviorFlags,
+    D3DPRESENT_PARAMETERS* pPP, IDirect3DDevice9** ppDevice)
+{
+    NUILog("hkCreateDevice called");
+    HRESULT hr = oCreateDevice(pD3D, Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPP, ppDevice);
+    NUILog(SUCCEEDED(hr) ? "CreateDevice OK" : "CreateDevice failed (pass-through)");
+    if (SUCCEEDED(hr) && ppDevice && *ppDevice)
+        HookDevice(*ppDevice);
+    return hr;
+}
+
 // ── Install ───────────────────────────────────────────────────────────────────
 
 void DX9Hook::Install()
 {
-    NUILog("DX9Hook::Install start");
+    NUILog("DX9Hook::Install - hooking IDirect3D9::CreateDevice");
 
-    WNDCLASSA wc = {};
-    wc.lpfnWndProc   = DefWindowProcA;
-    wc.hInstance     = GetModuleHandleA(nullptr);
-    wc.lpszClassName = "omp_nui_dummy";
-    BOOL regOk = RegisterClassA(&wc);
-    NUILog(regOk ? "RegisterClass OK" : "RegisterClass failed (may already exist)");
-
-    HWND hwnd = CreateWindowExA(0, "omp_nui_dummy", nullptr, WS_POPUP,
-                                0, 0, 2, 2, nullptr, nullptr, wc.hInstance, nullptr);
-    if (!hwnd)
-    {
-        char buf[64];
-        sprintf_s(buf, sizeof(buf), "CreateWindowEx failed: %u", GetLastError());
-        NUILog(buf);
-        return;
-    }
-    NUILog("CreateWindowEx OK");
-
-    IDirect3D9* d3d = Direct3DCreate9(D3D_SDK_VERSION);
-    if (!d3d)
+    // Create a temporary IDirect3D9 only to access its vtable.
+    // We do NOT create a device here (would fail in exclusive fullscreen).
+    IDirect3D9* pD3D = Direct3DCreate9(D3D_SDK_VERSION);
+    if (!pD3D)
     {
         NUILog("Direct3DCreate9 returned null");
-        DestroyWindow(hwnd);
         return;
     }
-    NUILog("Direct3DCreate9 OK");
 
-    D3DPRESENT_PARAMETERS pp = {};
-    pp.Windowed         = TRUE;
-    pp.SwapEffect       = D3DSWAPEFFECT_DISCARD;
-    pp.BackBufferFormat = D3DFMT_UNKNOWN;
-    pp.hDeviceWindow    = hwnd;
+    void** vtable = *reinterpret_cast<void***>(pD3D);
+    char buf[128];
+    sprintf_s(buf, sizeof(buf), "IDirect3D9 vtable=%p  CreateDevice[16]=%p",
+              vtable, vtable[VTX_CREATE_DEVICE]);
+    NUILog(buf);
 
-    IDirect3DDevice9* dummy = nullptr;
-
-    // Try hardware first (same flags as GTA SA), fall back to software
-    HRESULT hr = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
-                                    D3DCREATE_HARDWARE_VERTEXPROCESSING, &pp, &dummy);
-    if (FAILED(hr))
-    {
-        NUILog("CreateDevice HW failed, trying SW...");
-        hr = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
-                                D3DCREATE_SOFTWARE_VERTEXPROCESSING, &pp, &dummy);
-    }
-
-    if (SUCCEEDED(hr) && dummy)
-    {
-        void** vtable = *reinterpret_cast<void***>(dummy);
-        char buf[128];
-        sprintf_s(buf, sizeof(buf), "vtable=%p  Present slot=%p  Reset slot=%p",
-                  vtable, vtable[VTX_PRESENT], vtable[VTX_RESET]);
-        NUILog(buf);
-
-        PatchVtable(vtable, VTX_PRESENT, (void*)hkPresent, (void**)&oPresent);
-        PatchVtable(vtable, VTX_RESET,   (void*)hkReset,   (void**)&oReset);
-        dummy->Release();
-        NUILog("vtable patched OK");
-    }
-    else
-    {
-        char buf[64];
-        sprintf_s(buf, sizeof(buf), "CreateDevice FAILED: 0x%08X", (unsigned)hr);
-        NUILog(buf);
-    }
-
-    d3d->Release();
-    DestroyWindow(hwnd);
-    UnregisterClassA("omp_nui_dummy", wc.hInstance);
-    NUILog("DX9Hook::Install done");
+    PatchVtable(vtable, VTX_CREATE_DEVICE, (void*)hkCreateDevice, (void**)&oCreateDevice);
+    pD3D->Release();
+    NUILog("IDirect3D9::CreateDevice hooked — waiting for game device");
 }
 
-// ── OnPresent — render CEF overlays ──────────────────────────────────────────
+// ── OnPresent / OnReset ───────────────────────────────────────────────────────
 
 void DX9Hook::OnPresent(IDirect3DDevice9* pDevice)
 {
-    if (!s_cefStarted)
-    {
-        s_cefStarted = true;
-        // Initialize CEF on GTA SA's render/main thread (has proper message loop context)
-        NUILog("First Present: initializing CEF on render thread...");
-        CefManager::Init(g_hModule);
-        NUILog("CEF init done; showing connecting screen");
-        CefManager::ShowConnecting(GetModuleDir(g_hModule) + "\\nui-local");
-        NUILog("ShowConnecting done");
-    }
     CefManager::RenderAll(pDevice);
 }
-
-// ── OnReset — release GPU resources before device reset ─────────────────────
 
 void DX9Hook::OnReset(IDirect3DDevice9* pDevice)
 {
