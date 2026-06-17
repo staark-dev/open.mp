@@ -25,7 +25,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         nssv_CONFIG_SELECT_STRING_VIEW=nssv_STRING_VIEW_NONSTD
         span_CONFIG_SELECT_SPAN=span_SPAN_NONSTD
     )
-    target_compile_options(OMP-SDK INTERFACE -msse2 -mfpmath=sse)
+    if(MSVC)
+        target_compile_options(OMP-SDK INTERFACE /arch:SSE2)
+    else()
+        target_compile_options(OMP-SDK INTERFACE -msse2 -mfpmath=sse)
+    endif()
     target_include_directories(OMP-SDK INTERFACE "${OMP_ROOT}/SDK/include")
 
     add_library(OMP-Network STATIC
@@ -47,7 +51,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         "${OMP_ROOT}/lib/cpp-httplib"
         "${OMP_ROOT}/lib/pawn-natives"
         "${OMP_ROOT}/lib/pawn/source"
-        "${OMP_ROOT}/lib/pawn/source/linux"
         "${OMP_ROOT}/Shared"
     )
     target_compile_definitions(NUI PRIVATE
@@ -61,6 +64,13 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     if(WIN32)
         target_link_libraries(NUI PRIVATE ws2_32)
         target_compile_definitions(NUI PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0601)
+    endif()
+    if(MSVC)
+        # Use dynamic CRT (matches open.mp server)
+        set_property(TARGET NUI PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+        set_property(TARGET OMP-Network PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+        # Disable warnings-as-errors for httplib
+        target_compile_options(NUI PRIVATE /W3 /wd4996 /wd4244)
     endif()
     set_property(TARGET NUI PROPERTY OUTPUT_NAME "NUI")
     set_property(TARGET NUI PROPERTY PREFIX "")
@@ -81,5 +91,8 @@ else()
 
     if(UNIX)
         target_link_libraries(${ProjectId} PRIVATE pthread)
+    endif()
+    if(WIN32)
+        target_link_libraries(${ProjectId} PRIVATE ws2_32)
     endif()
 endif()
