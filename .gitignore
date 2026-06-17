@@ -315,3 +315,5 @@ CTestTestfile.cmake
 *Config.cmake
 build_nui_win/
 omp-nui-v1.0.0-windows-x86.zip
+build_nui_win/
+omp-nui-server-v1.0.0-windows-x86-FULL.zip
