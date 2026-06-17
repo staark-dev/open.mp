@@ -47,6 +47,58 @@ public:
     IMPLEMENT_REFCOUNTING(NUICefApp);
 };
 
+// ── Capture Chromium CHECK/FATAL messages via libcef's OutputDebugStringA ─────
+// Chromium logs fatal errors through OutputDebugStringA right before __debugbreak.
+// We IAT-hook libcef.dll so those messages land in our debug log.
+
+using ODS_t = void (WINAPI*)(LPCSTR);
+static ODS_t oODS_A = nullptr;
+
+static void WINAPI hkOutputDebugStringA(LPCSTR str)
+{
+    if (str && *str)
+        NUILog((std::string("[CHROMIUM] ") + str).c_str());
+    if (oODS_A) oODS_A(str);
+}
+
+static void HookLibcefLogging()
+{
+    HMODULE lib = GetModuleHandleA("libcef.dll");
+    if (!lib) { NUILog("HookLibcefLogging: libcef.dll not loaded"); return; }
+
+    auto* base = reinterpret_cast<uint8_t*>(lib);
+    auto* dos  = reinterpret_cast<IMAGE_DOS_HEADER*>(base);
+    auto* nt   = reinterpret_cast<IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    auto& dir  = nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
+    if (!dir.VirtualAddress) { NUILog("HookLibcefLogging: no import dir"); return; }
+
+    auto* desc = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(base + dir.VirtualAddress);
+    int patched = 0;
+    for (; desc->Name; ++desc)
+    {
+        DWORD firstThunkRVA = desc->OriginalFirstThunk ? desc->OriginalFirstThunk : desc->FirstThunk;
+        auto* thunk = reinterpret_cast<IMAGE_THUNK_DATA*>(base + desc->FirstThunk);
+        auto* orig  = reinterpret_cast<IMAGE_THUNK_DATA*>(base + firstThunkRVA);
+        for (; orig->u1.AddressOfData; ++thunk, ++orig)
+        {
+            if (orig->u1.Ordinal & IMAGE_ORDINAL_FLAG) continue;
+            auto* ibn = reinterpret_cast<IMAGE_IMPORT_BY_NAME*>(base + orig->u1.AddressOfData);
+            if (strcmp(reinterpret_cast<const char*>(ibn->Name), "OutputDebugStringA") != 0)
+                continue;
+
+            DWORD old;
+            VirtualProtect(&thunk->u1.Function, sizeof(void*), PAGE_READWRITE, &old);
+            if (!oODS_A) oODS_A = reinterpret_cast<ODS_t>(thunk->u1.Function);
+            thunk->u1.Function = reinterpret_cast<ULONG_PTR>(hkOutputDebugStringA);
+            VirtualProtect(&thunk->u1.Function, sizeof(void*), old, &old);
+            ++patched;
+        }
+    }
+    char buf[64];
+    sprintf_s(buf, sizeof(buf), "HookLibcefLogging: patched %d IAT entries", patched);
+    NUILog(buf);
+}
+
 // ── Screen dimensions (updated from D3D9 Present) ────────────────────────────
 
 static int g_screenW = 1920;
@@ -267,6 +319,10 @@ void CefManager::Init(HMODULE hModule)
     {
         NUILog("WARNING: GetGlobalCommandLine returned null");
     }
+
+    // Capture Chromium's fatal-error output before it __debugbreak()s
+    NUILog("Hooking libcef OutputDebugStringA...");
+    HookLibcefLogging();
 
     NUILog("Calling CefInitialize...");
     CefRefPtr<NUICefApp> app = new NUICefApp();
