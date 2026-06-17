@@ -1,8 +1,23 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <d3d9.h>
+#include <string>
 #include "dx9_hook.hpp"
 #include "cef_manager.hpp"
+
+extern HMODULE g_hModule;
+extern void    NUILog(const char*);
+
+static std::string GetModuleDir(HMODULE hMod)
+{
+    char path[MAX_PATH] = {};
+    GetModuleFileNameA(hMod, path, MAX_PATH);
+    std::string s(path);
+    auto pos = s.rfind('\\');
+    return (pos != std::string::npos) ? s.substr(0, pos) : s;
+}
+
+static bool s_cefStarted = false;
 
 // IDirect3DDevice9 vtable indices
 static constexpr int VTX_RESET   = 16;
@@ -86,6 +101,16 @@ void DX9Hook::Install()
 
 void DX9Hook::OnPresent(IDirect3DDevice9* pDevice)
 {
+    if (!s_cefStarted)
+    {
+        s_cefStarted = true;
+        // Initialize CEF on GTA SA's render/main thread (has proper message loop context)
+        NUILog("First Present: initializing CEF on render thread...");
+        CefManager::Init(g_hModule);
+        NUILog("CEF init done; showing connecting screen");
+        CefManager::ShowConnecting(GetModuleDir(g_hModule) + "\\nui-local");
+        NUILog("ShowConnecting done");
+    }
     CefManager::RenderAll(pDevice);
 }
 

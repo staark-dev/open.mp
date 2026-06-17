@@ -6,7 +6,7 @@
 #include "cef_manager.hpp"
 #include "rpc_receiver.hpp"
 
-static HMODULE g_hModule = nullptr;
+HMODULE g_hModule = nullptr;  // extern-visible for dx9_hook
 
 static std::string GetDllDir()
 {
@@ -44,21 +44,8 @@ DWORD WINAPI MainThread(LPVOID)
     g_log = fopen(logPath.c_str(), "w");
     NUILog("MainThread started");
 
-    NUILog("Calling CefManager::Init...");
-    DWORD exCode = TryCefInit(g_hModule);
-    if (exCode != 0)
-    {
-        char buf[64];
-        sprintf_s(buf, sizeof(buf), "CefInitialize CRASHED: 0x%08X", exCode);
-        NUILog(buf);
-        return 1;
-    }
-    NUILog("CefManager::Init returned OK");
-
-    std::string nuiLocal = GetDllDir() + "\\nui-local";
-    NUILog(("ShowConnecting: " + nuiLocal).c_str());
-    CefManager::ShowConnecting(nuiLocal);
-    NUILog("ShowConnecting returned");
+    // CEF is initialized on the first D3D9 Present call (render/main thread)
+    // to avoid LOG(FATAL) from CEF running on a worker thread.
 
     NUILog("Sleeping 3s for D3D9 init...");
     Sleep(3000);
