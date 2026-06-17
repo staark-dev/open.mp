@@ -237,7 +237,11 @@ void CefManager::Init(HMODULE hModule)
 
     NUILog("Building CefSettings...");
     CefSettings settings;
-    settings.multi_threaded_message_loop  = true;
+    // CEF 149 Chrome runtime does NOT support multi_threaded_message_loop —
+    // it triggers a fatal CHECK (STATUS_BREAKPOINT) in CefInitialize.
+    // Instead we pump the loop manually via CefDoMessageLoopWork() each frame.
+    settings.multi_threaded_message_loop  = false;
+    settings.external_message_pump        = false;
     settings.windowless_rendering_enabled = true;
     settings.no_sandbox                   = true;
     CefString(&settings.browser_subprocess_path) = helperPath;
@@ -306,6 +310,7 @@ void CefManager::ShowNUI(const std::string& resource,
 
     CefWindowInfo wi;
     wi.SetAsWindowless(nullptr);    // OSR — no native window
+    wi.runtime_style = CEF_RUNTIME_STYLE_ALLOY;  // windowless requires Alloy in CEF 149
 
     CefBrowserSettings bs;
     bs.windowless_frame_rate = 60;
@@ -345,6 +350,10 @@ void CefManager::SendMessage(const std::string& resource, const std::string& jso
 
 void CefManager::RenderAll(IDirect3DDevice9* pDevice)
 {
+    // Pump CEF's message loop on the game's render thread (single-threaded mode).
+    // Required because multi_threaded_message_loop is disabled for Chrome runtime.
+    CefDoMessageLoopWork();
+
     // Update screen size from backbuffer
     D3DSURFACE_DESC desc;
     IDirect3DSurface9* bb = nullptr;
@@ -391,6 +400,7 @@ void CefManager::ShowConnecting(const std::string& localResourcesDir)
 
     CefWindowInfo wi;
     wi.SetAsWindowless(nullptr);
+    wi.runtime_style = CEF_RUNTIME_STYLE_ALLOY;  // windowless requires Alloy in CEF 149
 
     CefBrowserSettings bs;
     bs.windowless_frame_rate = 30;  // 30fps e suficient pentru un loading screen
