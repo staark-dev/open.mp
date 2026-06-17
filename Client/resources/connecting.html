@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    width: 100vw;
+    height: 100vh;
+    background: #0a0a0f;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+    color: #fff;
+}
+
+/* ── Logo / server name ── */
+.server-name {
+    font-size: clamp(18px, 3vw, 48px);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #e2e2e2;
+    margin-bottom: 0.5vh;
+}
+
+.server-tagline {
+    font-size: clamp(10px, 1.2vw, 18px);
+    color: #666;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 6vh;
+}
+
+/* ── Spinner ── */
+.spinner-ring {
+    width: clamp(48px, 7vw, 100px);
+    height: clamp(48px, 7vw, 100px);
+    border-radius: 50%;
+    border: 0.4vw solid rgba(255,255,255,0.08);
+    border-top-color: #4f8ef7;
+    animation: spin 0.9s linear infinite;
+    margin-bottom: 3vh;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Status text ── */
+.status {
+    font-size: clamp(10px, 1.1vw, 16px);
+    color: #555;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: blink 1.6s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 0.4; }
+    50%       { opacity: 1;   }
+}
+
+/* ── Progress bar ── */
+.progress-track {
+    width: clamp(160px, 20vw, 320px);
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    margin-top: 2vh;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4f8ef7, #8b5cf6);
+    border-radius: 999px;
+    width: 0%;
+    animation: progress 3s ease-in-out forwards;
+}
+
+@keyframes progress {
+    0%   { width: 0%; }
+    60%  { width: 75%; }
+    90%  { width: 88%; }
+    100% { width: 88%; }  /* stă la 88% până la connected */
+}
+
+/* ── Server IP (opțional, setat din DLL via postMessage) ── */
+.server-ip {
+    position: absolute;
+    bottom: 2vh;
+    right: 2vw;
+    font-size: clamp(8px, 0.9vw, 13px);
+    color: #333;
+    letter-spacing: 0.05em;
+}
+</style>
+</head>
+<body>
+
+<div class="server-name" id="serverName">MyServer</div>
+<div class="server-tagline" id="serverTagline">Roleplay</div>
+
+<div class="spinner-ring"></div>
+
+<div class="status" id="statusText">Se conectează...</div>
+
+<div class="progress-track">
+    <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="server-ip" id="serverIp"></div>
+
+<script>
+// DLL-ul poate trimite date via postMessage:
+// { type: 'connecting', ip: '185.x.x.x:7777', name: 'MyServer', tagline: 'Roleplay' }
+// { type: 'connected' }
+// { type: 'failed', reason: 'Server offline' }
+window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (!d || !d.type) return;
+
+    if (d.type === 'connecting') {
+        if (d.name)    document.getElementById('serverName').textContent    = d.name;
+        if (d.tagline) document.getElementById('serverTagline').textContent = d.tagline;
+        if (d.ip)      document.getElementById('serverIp').textContent      = d.ip;
+        document.getElementById('statusText').textContent = 'Se conectează...';
+    }
+
+    if (d.type === 'connected') {
+        document.getElementById('statusText').textContent = 'Conectat!';
+        document.getElementById('progressFill').style.animation = 'none';
+        document.getElementById('progressFill').style.width = '100%';
+        document.getElementById('progressFill').style.transition = 'width 0.3s ease';
+        // DLL-ul va apela HideNUI după ce primește această confirmare
+    }
+
+    if (d.type === 'failed') {
+        document.getElementById('statusText').textContent =
+            d.reason || 'Conexiune eșuată';
+        document.getElementById('progressFill').style.background = '#ef4444';
+    }
+});
+</script>
+
+</body>
+</html>

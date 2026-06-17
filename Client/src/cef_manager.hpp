@@ -56,6 +56,10 @@ namespace CefManager
     void HideNUI(const std::string& resource);
     void SendMessage(const std::string& resource, const std::string& json);
 
+    // Show the local connecting screen (file:// — no server needed)
+    void ShowConnecting(const std::string& localResourcesDir);
+    void HideConnecting();
+
     // Called from D3D9 Present hook (game thread)
     void RenderAll(IDirect3DDevice9* pDevice);
     void OnDeviceLost();

@@ -92,5 +92,8 @@ add_custom_command(TARGET omp-nui-client POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:omp-nui-helper>"
         "$<TARGET_FILE_DIR:omp-nui-client>/omp-nui-helper.exe"
-    COMMENT "Copying CEF runtime files..."
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "$<TARGET_FILE_DIR:omp-nui-client>/nui-local"
+    COMMENT "Copying CEF runtime files and local NUI resources..."
 )

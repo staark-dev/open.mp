@@ -305,3 +305,35 @@ void CefManager::OnDeviceLost()
     for (auto& [name, b] : g_browsers)
         b->ReleaseGPU();
 }
+
+// ── Local connecting screen (file:// — no server needed) ─────────────────────
+
+static const std::string CONNECTING_RESOURCE = "__connecting__";
+
+void CefManager::ShowConnecting(const std::string& localResourcesDir)
+{
+    // Build a file:// URL to the local connecting.html
+    std::string url = "file:///" + localResourcesDir + "/connecting.html";
+    // Normalize backslashes to forward slashes for CEF
+    for (char& c : url) if (c == '\\') c = '/';
+
+    std::lock_guard<std::mutex> lock(g_browserMutex);
+
+    auto nb = std::make_shared<NUIBrowser>();
+    nb->resource = CONNECTING_RESOURCE;
+    nb->client   = new NUIClient(nb.get());
+
+    CefWindowInfo wi;
+    wi.SetAsWindowless(nullptr);
+
+    CefBrowserSettings bs;
+    bs.windowless_frame_rate = 30;  // 30fps e suficient pentru un loading screen
+
+    nb->browser = CefBrowserHost::CreateBrowserSync(wi, nb->client, url, bs, nullptr, nullptr);
+    g_browsers[CONNECTING_RESOURCE] = nb;
+}
+
+void CefManager::HideConnecting()
+{
+    HideNUI(CONNECTING_RESOURCE);
+}
