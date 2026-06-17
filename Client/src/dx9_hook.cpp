@@ -48,6 +48,13 @@ static std::string GetModuleDir(HMODULE hMod)
     return (pos != std::string::npos) ? s.substr(0, pos) : s;
 }
 
+// Isolated so __try doesn't mix with C++ objects in hkPresent
+static DWORD TryCefInit(HMODULE hMod)
+{
+    __try { CefManager::Init(hMod); return 0; }
+    __except (EXCEPTION_EXECUTE_HANDLER) { return GetExceptionCode(); }
+}
+
 static HRESULT WINAPI hkPresent(IDirect3DDevice9* pDevice,
     const RECT* pSrc, const RECT* pDst, HWND hWnd, const RGNDATA* pDirty)
 {
@@ -55,10 +62,19 @@ static HRESULT WINAPI hkPresent(IDirect3DDevice9* pDevice,
     if (s_cefStarted.compare_exchange_strong(expected, true))
     {
         NUILog("First Present: initializing CEF on render thread...");
-        CefManager::Init(g_hModule);
-        NUILog("CEF init done; showing connecting screen");
-        CefManager::ShowConnecting(GetModuleDir(g_hModule) + "\\nui-local");
-        NUILog("ShowConnecting done");
+        DWORD ex = TryCefInit(g_hModule);
+        if (ex != 0)
+        {
+            char buf[64];
+            sprintf_s(buf, sizeof(buf), "CefInitialize CRASHED: 0x%08X", ex);
+            NUILog(buf);
+        }
+        else
+        {
+            NUILog("CEF init OK — showing connecting screen");
+            CefManager::ShowConnecting(GetModuleDir(g_hModule) + "\\nui-local");
+            NUILog("ShowConnecting done");
+        }
     }
     DX9Hook::OnPresent(pDevice);
     return oPresent(pDevice, pSrc, pDst, hWnd, pDirty);

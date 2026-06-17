@@ -222,7 +222,11 @@ void CefManager::Init(HMODULE hModule)
     std::string dir(exePath);
     NUILog(("CEF base dir: " + dir).c_str());
 
-    std::string helperPath    = dir + "\\omp-nui-helper.exe";
+    // Use bootstrap.exe if present (custom CEF distributions ship it as the subprocess)
+    // otherwise fall back to our own helper
+    std::string helperPath    = dir + "\\bootstrap.exe";
+    if (GetFileAttributesA(helperPath.c_str()) == INVALID_FILE_ATTRIBUTES)
+        helperPath = dir + "\\omp-nui-helper.exe";
     std::string resourcesPath = dir + "\\Resources";
     std::string logPath       = dir + "\\omp-nui-cef.log";
     NUILog(("helper:    " + helperPath).c_str());
