@@ -12,9 +12,40 @@
 #include "include/cef_client.h"
 #include "include/cef_render_handler.h"
 #include "include/cef_life_span_handler.h"
+#include "include/cef_command_line.h"
 #include "include/wrapper/cef_helpers.h"
 
 #include "cef_manager.hpp"
+
+// ── NUICefApp — browser process handler that disables GPU ────────────────────
+
+class NUICefApp : public CefApp, public CefBrowserProcessHandler
+{
+public:
+    CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override
+    {
+        return this;
+    }
+
+    void OnBeforeCommandLineProcessing(const CefString& process_type,
+                                        CefRefPtr<CefCommandLine> cmd) override
+    {
+        if (process_type.empty()) // browser process only
+        {
+            // Disable GPU process — OSR uses software renderer (OnPaint) anyway
+            cmd->AppendSwitch("disable-gpu");
+            cmd->AppendSwitch("disable-gpu-compositing");
+            cmd->AppendSwitch("disable-software-rasterizer");
+            // Don't let CEF fight with SA-MP's crash handler
+            cmd->AppendSwitch("disable-crash-reporter");
+            // Single-process avoids subprocess launch issues in injection context
+            // (comment this out if you see renderer-related bugs later)
+            cmd->AppendSwitch("no-sandbox");
+        }
+    }
+
+    IMPLEMENT_REFCOUNTING(NUICefApp);
+};
 
 // ── Screen dimensions (updated from D3D9 Present) ────────────────────────────
 
@@ -212,7 +243,8 @@ void CefManager::Init(HMODULE hModule)
     settings.log_severity = LOGSEVERITY_VERBOSE;
 
     NUILog("Calling CefInitialize...");
-    bool ok = CefInitialize(args, settings, nullptr, nullptr);
+    CefRefPtr<NUICefApp> app = new NUICefApp();
+    bool ok = CefInitialize(args, settings, app, nullptr);
     NUILog(ok ? "CefInitialize returned TRUE" : "CefInitialize returned FALSE");
 }
 
