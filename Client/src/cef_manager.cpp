@@ -258,6 +258,38 @@ void NUIBrowser::DrawQuad(IDirect3DDevice9* dev)
 static std::unordered_map<std::string, std::shared_ptr<NUIBrowser>> g_browsers;
 static std::mutex g_browserMutex;
 
+// ── Vectored exception handler — pinpoints the int3/CHECK location ────────────
+
+static PVOID g_veh = nullptr;
+static int   g_vehLogged = 0;
+
+static LONG CALLBACK VehHandler(EXCEPTION_POINTERS* ep)
+{
+    DWORD code = ep->ExceptionRecord->ExceptionCode;
+    // STATUS_BREAKPOINT(0x80000003) or ILLEGAL_INSTRUCTION(0xC000001D = ud2)
+    if ((code == 0x80000003 || code == 0xC000001D) && g_vehLogged < 8)
+    {
+        ++g_vehLogged;
+        void* addr = ep->ExceptionRecord->ExceptionAddress;
+        HMODULE mod = nullptr;
+        GetModuleHandleExA(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCSTR>(addr), &mod);
+
+        char name[MAX_PATH] = "<unknown>";
+        if (mod) GetModuleFileNameA(mod, name, MAX_PATH);
+        const char* base = name;
+        for (const char* p = name; *p; ++p) if (*p == '\\') base = p + 1;
+
+        uintptr_t off = mod ? (uintptr_t)addr - (uintptr_t)mod : 0;
+        char buf[MAX_PATH + 64];
+        sprintf_s(buf, sizeof(buf), "[VEH] code=0x%08X at %s + 0x%IX (addr=%p)",
+                  code, base, off, addr);
+        NUILog(buf);
+    }
+    return EXCEPTION_CONTINUE_SEARCH;  // let our __try/__except handle it
+}
+
 // ── CefManager ───────────────────────────────────────────────────────────────
 
 void CefManager::Init(HMODULE hModule)
@@ -324,10 +356,16 @@ void CefManager::Init(HMODULE hModule)
     NUILog("Hooking libcef OutputDebugStringA...");
     HookLibcefLogging();
 
+    // Register VEH to capture the exact module+offset of the int3/CHECK
+    g_veh = AddVectoredExceptionHandler(1, VehHandler);
+    NUILog(g_veh ? "VEH registered" : "VEH registration failed");
+
     NUILog("Calling CefInitialize...");
     CefRefPtr<NUICefApp> app = new NUICefApp();
     bool ok = CefInitialize(args, settings, app, nullptr);
     NUILog(ok ? "CefInitialize returned TRUE" : "CefInitialize returned FALSE");
+
+    if (g_veh) { RemoveVectoredExceptionHandler(g_veh); g_veh = nullptr; }
 }
 
 void CefManager::Shutdown()
