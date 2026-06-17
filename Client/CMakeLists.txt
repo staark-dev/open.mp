@@ -66,6 +66,7 @@ target_link_libraries(omp-nui-client PRIVATE
     d3d9
     ws2_32
     winmm
+    shlwapi
 )
 
 target_compile_definitions(omp-nui-client PRIVATE
