@@ -17,6 +17,9 @@
 
 #include "cef_manager.hpp"
 
+// Defined in dllmain.cpp — visible throughout this translation unit
+extern void NUILog(const char*);
+
 // ── NUICefApp — browser process handler that disables GPU ────────────────────
 
 class NUICefApp : public CefApp, public CefBrowserProcessHandler
@@ -256,9 +259,6 @@ static std::unordered_map<std::string, std::shared_ptr<NUIBrowser>> g_browsers;
 static std::mutex g_browserMutex;
 
 // ── CefManager ───────────────────────────────────────────────────────────────
-
-// Declared in dllmain.cpp — available throughout the DLL
-extern void NUILog(const char*);
 
 void CefManager::Init(HMODULE hModule)
 {
