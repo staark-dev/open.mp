@@ -61,20 +61,34 @@ static HRESULT WINAPI hkReset(IDirect3DDevice9* pDevice, D3DPRESENT_PARAMETERS* 
 
 void DX9Hook::Install()
 {
-    // Create a tiny dummy window + dummy D3D9 device just to read the vtable.
-    // Vtables are per-class (shared), so patching the dummy patches the real device too.
+    NUILog("DX9Hook::Install start");
+
     WNDCLASSA wc = {};
     wc.lpfnWndProc   = DefWindowProcA;
     wc.hInstance     = GetModuleHandleA(nullptr);
     wc.lpszClassName = "omp_nui_dummy";
-    RegisterClassA(&wc);
+    BOOL regOk = RegisterClassA(&wc);
+    NUILog(regOk ? "RegisterClass OK" : "RegisterClass failed (may already exist)");
 
     HWND hwnd = CreateWindowExA(0, "omp_nui_dummy", nullptr, WS_POPUP,
                                 0, 0, 2, 2, nullptr, nullptr, wc.hInstance, nullptr);
-    if (!hwnd) return;
+    if (!hwnd)
+    {
+        char buf[64];
+        sprintf_s(buf, sizeof(buf), "CreateWindowEx failed: %u", GetLastError());
+        NUILog(buf);
+        return;
+    }
+    NUILog("CreateWindowEx OK");
 
     IDirect3D9* d3d = Direct3DCreate9(D3D_SDK_VERSION);
-    if (!d3d) { DestroyWindow(hwnd); return; }
+    if (!d3d)
+    {
+        NUILog("Direct3DCreate9 returned null");
+        DestroyWindow(hwnd);
+        return;
+    }
+    NUILog("Direct3DCreate9 OK");
 
     D3DPRESENT_PARAMETERS pp = {};
     pp.Windowed         = TRUE;
@@ -83,18 +97,41 @@ void DX9Hook::Install()
     pp.hDeviceWindow    = hwnd;
 
     IDirect3DDevice9* dummy = nullptr;
-    if (SUCCEEDED(d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
-                                     D3DCREATE_SOFTWARE_VERTEXPROCESSING, &pp, &dummy)))
+
+    // Try hardware first (same flags as GTA SA), fall back to software
+    HRESULT hr = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
+                                    D3DCREATE_HARDWARE_VERTEXPROCESSING, &pp, &dummy);
+    if (FAILED(hr))
+    {
+        NUILog("CreateDevice HW failed, trying SW...");
+        hr = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hwnd,
+                                D3DCREATE_SOFTWARE_VERTEXPROCESSING, &pp, &dummy);
+    }
+
+    if (SUCCEEDED(hr) && dummy)
     {
         void** vtable = *reinterpret_cast<void***>(dummy);
+        char buf[128];
+        sprintf_s(buf, sizeof(buf), "vtable=%p  Present slot=%p  Reset slot=%p",
+                  vtable, vtable[VTX_PRESENT], vtable[VTX_RESET]);
+        NUILog(buf);
+
         PatchVtable(vtable, VTX_PRESENT, (void*)hkPresent, (void**)&oPresent);
         PatchVtable(vtable, VTX_RESET,   (void*)hkReset,   (void**)&oReset);
         dummy->Release();
+        NUILog("vtable patched OK");
+    }
+    else
+    {
+        char buf[64];
+        sprintf_s(buf, sizeof(buf), "CreateDevice FAILED: 0x%08X", (unsigned)hr);
+        NUILog(buf);
     }
 
     d3d->Release();
     DestroyWindow(hwnd);
     UnregisterClassA("omp_nui_dummy", wc.hInstance);
+    NUILog("DX9Hook::Install done");
 }
 
 // ── OnPresent — render CEF overlays ──────────────────────────────────────────
