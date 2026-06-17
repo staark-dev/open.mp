@@ -55,6 +55,7 @@ public:
 	httplib::Server httpServer_;
 	std::thread httpThread_;
 	std::atomic<bool> running_ { false };
+	std::string httpBaseUrl_;  // e.g. "http://185.23.45.67:7778"
 
 	// Loaded Pawn scripts (for firing OnNUIMessage)
 	std::vector<IPawnScript*> scripts_;
@@ -87,6 +88,7 @@ public:
 	static cell AMX_NATIVE_CALL n_NUI_SendMessage(AMX* amx, const cell* params);
 	static cell AMX_NATIVE_CALL n_NUI_Show(AMX* amx, const cell* params);
 	static cell AMX_NATIVE_CALL n_NUI_Hide(AMX* amx, const cell* params);
+	static cell AMX_NATIVE_CALL n_NUI_SetBaseURL(AMX* amx, const cell* params);
 
 	// IComponent
 	StringView componentName() const override { return "NUI"; }

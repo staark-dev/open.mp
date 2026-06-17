@@ -37,21 +37,27 @@ namespace RPC
 	};
 
 	// RPC 221 — server→client: open CEF browser for a NUI resource
+	// BaseURL example: "http://185.23.45.67:7778"
+	// Client opens: {BaseURL}/nui/{Resource}/index.html
+	// All relative fetch() calls in the HTML resolve against BaseURL automatically.
 	struct NUIShow : NetworkPacketBase<221, NetworkPacketType::RPC, OrderingChannel_SyncRPC>
 	{
-		HybridString<64> Resource;
-		HybridString<64> Token;
+		HybridString<64>  Resource;
+		HybridString<64>  Token;
+		HybridString<256> BaseURL;
 
 		bool read(NetworkBitStream& bs)
 		{
 			bs.readDynStr8(Resource);
-			return bs.readDynStr8(Token);
+			bs.readDynStr8(Token);
+			return bs.readDynStr8(BaseURL);
 		}
 
 		void write(NetworkBitStream& bs) const
 		{
 			bs.writeDynStr8(Resource);
 			bs.writeDynStr8(Token);
+			bs.writeDynStr8(BaseURL);
 		}
 	};
 

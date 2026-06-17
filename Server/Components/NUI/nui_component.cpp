@@ -95,6 +95,16 @@ void NUIComponent::onLoad(ICore* core)
 	core_->getEventDispatcher().addEventHandler(this);
 	core_->getPlayers().getPlayerConnectDispatcher().addEventHandler(this);
 
+	// Determine the public HTTP base URL for clients.
+	// Priority: network.public_addr from config → fallback to "127.0.0.1"
+	// Pawn can override at runtime with NUI_SetBaseURL().
+	{
+		StringView publicAddr = core_->getConfig().getString("network.public_addr");
+		std::string host = publicAddr.empty() ? "127.0.0.1" : std::string(publicAddr);
+		httpBaseUrl_ = "http://" + host + ":7778";
+	}
+	core_->printLn("[NUI] HTTP base URL: %s", httpBaseUrl_.c_str());
+
 	// /ping — health check
 	httpServer_.Get("/ping", [](const httplib::Request&, httplib::Response& res) {
 		res.set_header("Access-Control-Allow-Origin", "*");
@@ -183,19 +193,19 @@ void NUIComponent::onLoad(ICore* core)
 		std::string content((std::istreambuf_iterator<char>(f)), {});
 		std::string mime = mimeType(filePath);
 
-		// Inject token into HTML head so window.__NUI_TOKEN__ is available to JS
+		// Inject __NUI_TOKEN__ and __NUI_BASE_URL__ into HTML head
 		if (mime.rfind("text/html", 0) == 0)
 		{
 			std::string token = req.get_header_value("X-NUI-Token");
-			if (!token.empty())
-			{
-				std::string inj = "<script>window.__NUI_TOKEN__='" + token + "';</script>";
-				auto pos = content.find("</head>");
-				if (pos != std::string::npos)
-					content.insert(pos, inj);
-				else
-					content = inj + content;
-			}
+			std::string inj = "<script>"
+				"window.__NUI_BASE_URL__='" + httpBaseUrl_ + "';"
+				+ (token.empty() ? "" : "window.__NUI_TOKEN__='" + token + "';")
+				+ "</script>";
+			auto pos = content.find("</head>");
+			if (pos != std::string::npos)
+				content.insert(pos, inj);
+			else
+				content = inj + content;
 		}
 
 		res.set_content(content, mime.c_str());
@@ -321,7 +331,8 @@ bool NUIComponent::showNUI(IPlayer& player, StringView resource)
 	std::string token = getOrCreateToken(player.getID());
 	NetCode::RPC::NUIShow msg;
 	msg.Resource = resource;
-	msg.Token = StringView(token.c_str(), token.size());
+	msg.Token   = StringView(token.c_str(), token.size());
+	msg.BaseURL = StringView(httpBaseUrl_.c_str(), httpBaseUrl_.size());
 	return PacketHelper::send(msg, player);
 }
 
@@ -341,6 +352,7 @@ void NUIComponent::onAmxLoad(IPawnScript& script)
 		{ "NUI_SendMessage",    NUIComponent::n_NUI_SendMessage },
 		{ "NUI_Show",           NUIComponent::n_NUI_Show },
 		{ "NUI_Hide",           NUIComponent::n_NUI_Hide },
+		{ "NUI_SetBaseURL",     NUIComponent::n_NUI_SetBaseURL },
 		{ nullptr, nullptr }
 	};
 	script.Register(natives, -1);
@@ -429,6 +441,24 @@ cell AMX_NATIVE_CALL NUIComponent::n_NUI_Hide(AMX* amx, const cell* params)
 	IPlayer* player = s_instance->core_->getPlayers().get(playerid);
 	if (!player) return 0;
 	return s_instance->hideNUI(*player, StringView(resource)) ? 1 : 0;
+}
+
+// native NUI_SetBaseURL(const url[]);
+cell AMX_NATIVE_CALL NUIComponent::n_NUI_SetBaseURL(AMX* amx, const cell* params)
+{
+	if (!s_instance || !s_instance->pawn_) return 0;
+	if (params[0] < 1 * (cell)sizeof(cell)) return 0;
+	IPawnScript* script = s_instance->pawn_->getScript(amx);
+	if (!script) return 0;
+
+	cell* urlPtr = nullptr;
+	script->GetAddr(params[1], &urlPtr);
+	char url[256] = {};
+	script->GetString(url, urlPtr, false, sizeof(url) - 1);
+
+	s_instance->httpBaseUrl_ = std::string(url);
+	s_instance->core_->printLn("[NUI] Base URL updated: %s", url);
+	return 1;
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
