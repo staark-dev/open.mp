@@ -66,15 +66,25 @@
   .star.filled { fill:#fbbf24; }
   .star.empty { fill:rgba(255,255,255,0.15); }
 
-  #weapon-row { gap:clamp(8px,1.1vmin,14px); }
-  #weapon-row .icon { width:clamp(14px,1.8vmin,22px); height:clamp(14px,1.8vmin,22px); flex-shrink:0; }
-  #weapon-row .weapon-name {
-    font-size:clamp(10px,1.2vmin,14px); color:#cbd5e1;
-    text-transform:uppercase; letter-spacing:1px; margin-right:2px; white-space:nowrap;
+  /* Cutie patrata pentru arma, ca in HUD-ul original SA-MP: iconita mare
+     in centru, muniția sub ea. */
+  #weapon-box {
+    width:clamp(64px,9.5vmin,104px); min-width:0;
+    padding:clamp(6px,0.9vmin,11px) clamp(6px,0.9vmin,11px) clamp(4px,0.6vmin,8px);
+    display:flex; flex-direction:column; align-items:center; gap:clamp(2px,0.3vmin,5px);
+    justify-content:center;
   }
-  #weapon-row .ammo {
+  #weapon-box .icon { width:clamp(30px,4.4vmin,50px); height:clamp(26px,3.8vmin,42px); }
+  #weapon-box .ammo {
     font-family:'Consolas','Cascadia Code',ui-monospace,monospace;
-    font-size:clamp(12px,1.5vmin,18px); font-weight:700; color:#fbbf24; font-variant-numeric:tabular-nums;
+    font-size:clamp(13px,1.7vmin,20px); font-weight:800; color:#fbbf24;
+    line-height:1; font-variant-numeric:tabular-nums; letter-spacing:0.5px;
+  }
+  #weapon-box .ammo:empty { display:none; }
+  #weapon-box .weapon-name {
+    font-size:clamp(8px,1vmin,11px); color:#cbd5e1;
+    text-transform:uppercase; letter-spacing:0.8px; white-space:nowrap;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis;
   }
 
   #time-row {
@@ -148,15 +158,15 @@
 
   <!-- TOP RIGHT: bani / wanted / ceas+zona -->
   <div class="top-right">
+    <div id="weapon-box" class="panel">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
+      <span class="ammo" id="weaponAmmo"></span>
+      <span class="weapon-name" id="weaponName">Pumn</span>
+    </div>
+
     <div id="money" class="panel stat-row">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
       <span class="label" id="moneyVal">$0</span>
-    </div>
-
-    <div id="weapon-row" class="panel stat-row">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
-      <span class="weapon-name" id="weaponName">Pumn</span>
-      <span class="ammo" id="weaponAmmo"></span>
     </div>
 
     <div id="wanted-row" class="panel stat-row hidden">
