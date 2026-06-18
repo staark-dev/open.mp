@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<style>
+/* PulsedMP NUI · splash in stilul clasic SA-MP: cer de amurg in desert, siluete
+   de palmieri/pilon electric pe orizont, logo script + bloc, banda de credite.
+   Fundalul e desen vectorial original (gradient + forme simple), nu artwork
+   Rockstar - doar paleta si compozitia sunt inspirate din splash-ul clasic. */
+
+@font-face {
+    font-family:'Pricedown';
+    src:local('Pricedown'), local('Pricedown Bl'), local('PricedownBl'),
+        url('pricedown.ttf') format('truetype'), url('Pricedown.otf') format('opentype');
+    font-display:swap;
+}
+
+:root {
+    --accent:#f3b34d; --ink:#fff6e6; --mute:#caa377;
+    --gta:'Pricedown','Anton','Haettenschweiler','Impact','Arial Narrow',sans-serif;
+    --script:'Segoe Script','Brush Script MT','Bradley Hand','Comic Sans MS',cursive;
+    --sans:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    --mono:"Cascadia Code","Consolas","SF Mono","Roboto Mono",ui-monospace,monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+.stage {
+    position:fixed; inset:0; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    background:#2a1a12; color:var(--ink); font-family:var(--sans); user-select:none; text-align:center;
+    transition:opacity 0.7s ease;
+}
+.stage.is-failed { --accent:#e0533b; }
+.stage.is-hiding { opacity:0; }
+
+.sky { position:absolute; inset:0; z-index:0; width:100%; height:100%; }
+.vignette {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:radial-gradient(120% 100% at 50% 60%, rgba(0,0,0,0) 32%, rgba(30,14,8,0.55) 78%, rgba(18,8,5,0.88) 100%);
+}
+
+.center {
+    position:relative; z-index:3; display:flex; flex-direction:column; align-items:center;
+    padding:2.2em 3em;
+}
+.brand { display:flex; align-items:center; justify-content:center; gap:0.55em; margin-bottom:2.6vh; animation:rise 0.7s cubic-bezier(.2,.7,.2,1) both; }
+.badge {
+    font-family:var(--mono); font-size:clamp(9px,1vw,13px); font-weight:700;
+    letter-spacing:0.18em; text-transform:uppercase;
+    color:#2a1707; background:var(--accent); border-radius:6px; padding:0.4em 0.62em;
+    box-shadow:0 0 16px rgba(243,179,77,0.45);
+}
+.t1 {
+    font-family:var(--script); font-weight:400; font-style:italic;
+    font-size:clamp(50px,9vw,124px); line-height:0.9; letter-spacing:0;
+    transform:skewX(-4deg);
+    background:linear-gradient(180deg, #ffffff 0%, #ffe6c2 45%, var(--accent) 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,0.45)) drop-shadow(0 0 30px rgba(243,179,77,0.4));
+    animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.05s both;
+}
+.t2 {
+    font-family:var(--gta); font-weight:400;
+    font-size:clamp(18px,3.2vw,46px); line-height:1; letter-spacing:0.32em; text-indent:0.32em;
+    text-transform:uppercase; color:#fff2dc; margin-top:1vh; text-shadow:0 0 18px rgba(243,179,77,0.5);
+    animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.12s both;
+}
+
+.bar {
+    position:relative; width:clamp(160px,18vw,260px); height:2px; margin:4.6vh 0 2.2vh;
+    border-radius:999px; background:rgba(255,255,255,0.16); overflow:hidden;
+    opacity:0; transition:opacity 0.6s ease;
+}
+.bar.is-shown { opacity:1; }
+.bar i {
+    position:absolute; top:0; bottom:0; left:0; width:0;
+    background:var(--accent); border-radius:999px; box-shadow:0 0 12px var(--accent);
+}
+.is-failed .bar i { opacity:0.6; }
+.status { font-family:var(--mono); font-size:clamp(9px,1vw,13px); letter-spacing:0.26em; text-transform:uppercase; color:var(--mute); animation:fade 0.7s ease 0.26s both; }
+.is-connected .status { color:var(--accent); }
+.is-failed .status { color:#e0533b; }
+
+/* ---------- Banda de credite (echivalentul EAX / nVidia / RakNet din splash-ul clasic) ---------- */
+.credits {
+    position:relative; z-index:3; display:flex; align-items:center; justify-content:center;
+    gap:clamp(14px,2.4vw,34px); margin-top:4.4vh; opacity:0.85;
+    animation:fade 0.7s ease 0.3s both;
+}
+.credit { display:flex; align-items:center; gap:0.5em; }
+.credit svg { width:clamp(14px,1.6vw,20px); height:clamp(14px,1.6vw,20px); fill:none; stroke:#fff2dc; stroke-width:1.6; opacity:0.85; }
+.credit span {
+    font-family:var(--mono); font-size:clamp(8px,0.85vw,11px); font-weight:600;
+    letter-spacing:0.16em; text-transform:uppercase; color:#fff2dc;
+}
+.credit-sep { width:1px; height:1.1em; background:rgba(255,242,220,0.25); }
+
+.foot { position:absolute; bottom:3vh; left:0; right:0; z-index:3; font-family:var(--mono); font-size:clamp(8px,0.9vw,12px); letter-spacing:0.12em; color:#caa377; min-height:1em; }
+
+@keyframes rise  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fade  { from { opacity:0; } to { opacity:1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .brand, .t1, .t2, .status, .credits { animation:none; opacity:1; transform:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+    <svg class="sky" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+            <linearGradient id="skyg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#fbe7b0"/>
+                <stop offset="0.45" stop-color="#f0a84f"/>
+                <stop offset="0.78" stop-color="#c75a3a"/>
+                <stop offset="1" stop-color="#5a2a26"/>
+            </linearGradient>
+            <linearGradient id="duneg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#7a4326"/>
+                <stop offset="1" stop-color="#4a2818"/>
+            </linearGradient>
+            <radialGradient id="sung" cx="0.5" cy="0.5" r="0.5">
+                <stop offset="0" stop-color="#fff7da" stop-opacity="0.95"/>
+                <stop offset="0.55" stop-color="#ffd479" stop-opacity="0.55"/>
+                <stop offset="1" stop-color="#ffd479" stop-opacity="0"/>
+            </radialGradient>
+        </defs>
+
+        <rect x="0" y="0" width="1600" height="900" fill="url(#skyg)"/>
+        <circle cx="800" cy="560" r="260" fill="url(#sung)"/>
+        <circle cx="800" cy="560" r="90" fill="#fff7da" opacity="0.9"/>
+
+        <!-- dealuri/dune pe orizont -->
+        <path fill="url(#duneg)" opacity="0.9" d="M0,640 C200,600 360,660 540,630 C760,592 940,560 1180,600 C1340,626 1480,610 1600,580 L1600,900 L0,900 Z"/>
+        <path fill="#3a1f12" opacity="0.85" d="M0,700 C260,660 460,720 700,690 C940,660 1140,710 1380,680 C1480,668 1560,650 1600,640 L1600,900 L0,900 Z"/>
+
+        <!-- drum in perspectiva -->
+        <path fill="#241410" opacity="0.9" d="M700,900 L880,900 L820,700 L760,700 Z"/>
+        <path fill="none" stroke="#caa377" stroke-width="3" opacity="0.5" d="M796,900 L800,705 M784,900 L800,705"/>
+
+        <!-- palmieri (siluete simple, generice) -->
+        <g fill="#241410" opacity="0.92">
+            <path d="M210,700 q-4,-70 -42,-96 q34,4 46,30 q4,-44 -18,-78 q36,16 40,62 q14,-36 48,-46 q-20,30 -16,60 q26,-18 56,-10 q-30,16 -36,42 q4,40 -8,76 z"/>
+            <rect x="200" y="700" width="10" height="92" rx="3"/>
+            <path d="M1370,660 q-3,-56 -34,-78 q28,4 38,24 q3,-36 -14,-62 q29,13 32,50 q12,-29 39,-37 q-16,24 -13,48 q21,-14 45,-8 q-24,13 -29,34 q3,32 -7,61 z"/>
+            <rect x="1362" y="660" width="8" height="74" rx="3"/>
+        </g>
+
+        <!-- pilon electric -->
+        <g stroke="#241410" stroke-width="3" fill="none" opacity="0.85">
+            <path d="M1140,560 L1100,700 M1100,700 L1180,700 L1140,560 M1115,610 L1165,610 M1108,655 L1172,655"/>
+            <line x1="1010" y1="585" x2="1140" y2="560"/>
+            <line x1="1140" y1="560" x2="1280" y2="600"/>
+        </g>
+    </svg>
+
+    <div class="vignette"></div>
+
+    <div class="center">
+        <div class="brand">
+            <span class="badge">PulsedMP</span>
+        </div>
+        <div class="t1">SanAndreas</div>
+        <div class="t2">Multiplayer</div>
+
+        <div class="bar"><i id="progressFill"></i></div>
+        <div class="status" id="statusText">Se conectează&hellip;</div>
+
+        <div class="credits">
+            <div class="credit">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+                <span>RakNet</span>
+            </div>
+            <div class="credit-sep"></div>
+            <div class="credit">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M5 16l5-7M19 16l-5-7"/></svg>
+                <span>Chromium CEF</span>
+            </div>
+            <div class="credit-sep"></div>
+            <div class="credit">
+                <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+                <span>open.mp</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="foot"><span id="serverName"></span><span id="serverTagline"></span><span id="serverIp"></span></div>
+</div>
+
+<script>
+(function () {
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var raf = null;
+
+    function frame() {
+        tickProgress();
+        raf = requestAnimationFrame(frame);
+    }
+    if (!reduce) frame();
+
+    /* ── motor de progres (identic ca functionalitate cu connecting.html) ── */
+    var bar = document.querySelector('.bar');
+    var fill = document.getElementById('progressFill');
+    var pcur = 0, ptarget = 0, pceil = 0, pshown = false, pdone = false;
+
+    function paintBar() { fill.style.width = pcur.toFixed(2) + '%'; }
+    function showBar() { if (pshown) return; pshown = true; bar.classList.add('is-shown'); }
+    function creepTo(ceil, label) {
+        showBar(); if (ceil > pceil) pceil = ceil;
+        if (label) elStatus.textContent = label;
+        if (reduce) { pcur = Math.min(pceil, 60); paintBar(); }
+    }
+    function setPct(pct, label) {
+        showBar(); pct = Math.max(0, Math.min(100, pct));
+        if (pct > ptarget) ptarget = pct;
+        if (ptarget > pceil) pceil = ptarget;
+        if (label) elStatus.textContent = label;
+        if (reduce) { pcur = ptarget; paintBar(); }
+    }
+    function finishBar() {
+        showBar(); pdone = true; pceil = 100; ptarget = 100;
+        if (reduce) { pcur = 100; paintBar(); }
+    }
+    function tickProgress() {
+        if (!pshown || reduce) return;
+        if (!pdone) {
+            if (ptarget < pceil) ptarget += (pceil - ptarget) * 0.018 + 0.04;
+            if (ptarget > pceil) ptarget = pceil;
+        }
+        pcur += (ptarget - pcur) * (pdone ? 0.16 : 0.07);
+        if (pdone && pcur > 99.5) pcur = 100;
+        paintBar();
+    }
+
+    function onResourcesReady() { creepTo(40, 'Se încarcă resursele…'); }
+    if (document.readyState === 'complete') onResourcesReady();
+    else window.addEventListener('load', onResourcesReady);
+
+    /* ── contract DLL/server (identic cu connecting.html) ── */
+    var stage = document.getElementById('stage');
+    var elName = document.getElementById('serverName');
+    var elTag  = document.getElementById('serverTagline');
+    var elIp   = document.getElementById('serverIp');
+    var elStatus = document.getElementById('statusText');
+
+    function handle(d) {
+        if (!d || !d.type) return;
+        if (d.type === 'connecting') {
+            stage.classList.remove('is-connected', 'is-failed');
+            if (d.name)    elName.textContent = d.name + '  ·  ';
+            if (d.tagline) elTag.textContent  = d.tagline + '  ·  ';
+            if (d.ip)      elIp.textContent    = d.ip;
+            creepTo(92, 'Se conectează…');
+        }
+        if (d.type === 'progress') {
+            var pct = (typeof d.pct === 'number') ? d.pct : (d.total ? (d.bytes / d.total) * 100 : 0);
+            setPct(pct, d.label);
+        }
+        if (d.type === 'connected') {
+            stage.classList.remove('is-failed'); stage.classList.add('is-connected');
+            elStatus.textContent = 'Conectat';
+            finishBar();
+            setTimeout(function () { stage.classList.add('is-hiding'); }, 300);
+        }
+        if (d.type === 'failed') {
+            stage.classList.remove('is-connected'); stage.classList.add('is-failed');
+            elStatus.textContent = d.reason || 'Conexiune eșuată';
+        }
+    }
+    window.addEventListener('message', function (e) {
+        if (e.source !== window) return;
+        handle(e.data);
+    });
+
+    if (location.search.indexOf('demo') !== -1) {
+        handle({ type:'connecting', name:'Los Santos RP', ip:'185.12.34.56:7777' });
+        setTimeout(function () { handle({ type:'connected' }); }, 4200);
+    }
+})();
+</script>
+
+</body>
+</html>
