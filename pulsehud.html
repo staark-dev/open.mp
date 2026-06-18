@@ -224,6 +224,92 @@
     color: #f87171;
     font-variant-numeric: tabular-nums;
   }
+
+  /* ================= FULL-SCREEN: Login / Register ================= */
+  /* Singurul ecran interactiv -> are nevoie de pointer-events, restul HUD-ului ramane click-through. */
+  .auth-overlay {
+    background: rgba(5, 6, 8, 0.92);
+    pointer-events: auto;
+  }
+
+  .auth-panel {
+    width: clamp(260px, 26vmin, 380px);
+    padding: clamp(20px, 3vmin, 32px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1.4vmin, 16px);
+  }
+
+  .auth-logo {
+    font-size: clamp(20px, 3vmin, 30px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #f1f5f9;
+    text-align: center;
+    text-shadow: 0 0 16px rgba(74, 222, 128, 0.4);
+  }
+
+  .auth-tabs {
+    display: flex;
+    gap: clamp(4px, 0.6vmin, 8px);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: clamp(6px, 0.8vmin, 10px);
+    padding: clamp(3px, 0.4vmin, 5px);
+  }
+
+  .auth-tab {
+    flex: 1;
+    padding: clamp(6px, 0.9vmin, 10px);
+    border: none;
+    border-radius: clamp(5px, 0.6vmin, 8px);
+    background: transparent;
+    color: #94a3b8;
+    font-size: clamp(12px, 1.4vmin, 15px);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auth-tab.active { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+
+  .auth-field { display: flex; flex-direction: column; gap: clamp(4px, 0.5vmin, 6px); }
+  .auth-field label {
+    font-size: clamp(10px, 1.2vmin, 13px);
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+  }
+  .auth-field input {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: clamp(5px, 0.7vmin, 8px);
+    padding: clamp(8px, 1.1vmin, 12px);
+    color: #f1f5f9;
+    font-size: clamp(13px, 1.5vmin, 16px);
+    outline: none;
+    font-family: inherit;
+  }
+  .auth-field input:focus { border-color: #4ade80; }
+  .auth-field input:read-only { color: #94a3b8; background: rgba(255, 255, 255, 0.03); }
+
+  .auth-error {
+    min-height: clamp(14px, 1.8vmin, 18px);
+    font-size: clamp(11px, 1.3vmin, 14px);
+    color: #f87171;
+    text-align: center;
+  }
+
+  .auth-submit {
+    padding: clamp(9px, 1.3vmin, 14px);
+    border: none;
+    border-radius: clamp(6px, 0.8vmin, 10px);
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    color: #052e16;
+    font-weight: 700;
+    font-size: clamp(13px, 1.5vmin, 16px);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .auth-submit:disabled { opacity: 0.6; cursor: default; }
 </style>
 </head>
 <body>
@@ -313,6 +399,37 @@
     <div class="death-title">AI FOST ELIMINAT</div>
     <div class="death-info">Ucis de <span class="killer-name" id="death-killer-name">lume</span> cu <span class="weapon-name" id="death-weapon-name">—</span></div>
     <div class="respawn-count" id="death-respawn-count">5</div>
+  </div>
+
+  <!-- LOGIN / REGISTER -->
+  <div id="auth-screen" class="overlay auth-overlay">
+    <div class="auth-panel panel">
+      <div class="auth-logo">PulseHUD</div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Login</button>
+        <button type="button" class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Register</button>
+      </div>
+
+      <div class="auth-field">
+        <label>Username</label>
+        <input type="text" id="auth-username" readonly>
+      </div>
+
+      <div class="auth-field">
+        <label>Parolă</label>
+        <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+      </div>
+
+      <div class="auth-field" id="auth-confirm-field" style="display: none;">
+        <label>Confirmă parola</label>
+        <input type="password" id="auth-confirm-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+      </div>
+
+      <div class="auth-error" id="auth-error"></div>
+
+      <button type="button" class="auth-submit" id="auth-submit" onclick="submitAuth()">Conectare</button>
+    </div>
   </div>
 </div>
 
@@ -428,6 +545,79 @@
   function hideDeathScreen() {
     clearInterval(deathRespawnTimer);
     document.getElementById('death-screen').classList.remove('visible');
+  }
+
+  // ---------- Login / Register ----------
+  // Username e read-only (vine din jocul/launcher-ul local), aici se cere
+  // doar parola. Trimiterea efectiva catre server se face din C++, prin
+  // bridge-ul JS<->native (ex. window.pulseHUD.submit(mode, data)) - vezi
+  // recomandarea cu extensia V8, nu e implementata in acest mockup.
+  let authMode = 'login';
+
+  function showLoginScreen(username) {
+    authMode = 'login';
+    document.getElementById('auth-username').value = username || '';
+    updateAuthMode();
+    clearAuthError();
+    document.getElementById('auth-screen').classList.add('visible');
+  }
+
+  function showRegisterScreen(username) {
+    authMode = 'register';
+    document.getElementById('auth-username').value = username || '';
+    updateAuthMode();
+    clearAuthError();
+    document.getElementById('auth-screen').classList.add('visible');
+  }
+
+  function hideAuthScreen() {
+    document.getElementById('auth-screen').classList.remove('visible');
+  }
+
+  function switchAuthTab(mode) {
+    authMode = mode;
+    updateAuthMode();
+    clearAuthError();
+  }
+
+  function updateAuthMode() {
+    const isRegister = authMode === 'register';
+    document.getElementById('tab-login').classList.toggle('active', !isRegister);
+    document.getElementById('tab-register').classList.toggle('active', isRegister);
+    document.getElementById('auth-confirm-field').style.display = isRegister ? 'flex' : 'none';
+    document.getElementById('auth-submit').textContent = isRegister ? 'Înregistrare' : 'Conectare';
+  }
+
+  function setAuthError(message) {
+    document.getElementById('auth-error').textContent = message || '';
+  }
+
+  function clearAuthError() { setAuthError(''); }
+
+  function setAuthLoading(loading) {
+    const btn = document.getElementById('auth-submit');
+    btn.disabled = loading;
+    if (loading) {
+      btn.textContent = 'Se trimite...';
+    } else {
+      updateAuthMode();
+    }
+  }
+
+  function submitAuth() {
+    const password = document.getElementById('auth-password').value;
+    const confirmPassword = document.getElementById('auth-confirm-password').value;
+
+    if (!password) { setAuthError('Introdu parola.'); return; }
+    if (authMode === 'register' && password !== confirmPassword) {
+      setAuthError('Parolele nu coincid.');
+      return;
+    }
+
+    clearAuthError();
+    setAuthLoading(true);
+    // Punct de integrare cu clientul C++, ex:
+    // window.pulseHUD.submit(authMode, { password });
   }
 
   // Demo (sterge in productie)
