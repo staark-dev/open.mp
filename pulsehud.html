@@ -26,6 +26,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
+    transition: opacity 0.2s ease-out;
   }
 
   /* ---------- Shared panel look ---------- */
@@ -107,6 +108,15 @@
     gap: clamp(6px, 0.9vmin, 12px);
   }
 
+  /* ---------- Show/hide control (driven from gameplay via JS API) ---------- */
+  .stat-row, .bar-row {
+    transition: opacity 0.2s ease-out;
+  }
+  .hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .bar-row .icon-wrap {
     width: clamp(22px, 3vmin, 34px);
     height: clamp(22px, 3vmin, 34px);
@@ -170,7 +180,7 @@
       <span class="label" id="time-label">12:00</span>
     </div>
 
-    <div id="weapon" class="panel stat-row" id="weapon-row">
+    <div id="weapon-row" class="panel stat-row">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
       <span class="weapon-name" id="weapon-name">Deagle</span>
       <span class="ammo" id="weapon-ammo">35</span>
@@ -194,7 +204,7 @@
   <!-- BOTTOM RIGHT: HP / Armor / Water / Food (stanga e minimap-ul jocului) -->
   <div class="bottom-right">
 
-    <div class="bar-row">
+    <div class="bar-row" id="hp-row">
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#f87171"><path d="M12 21s-7.5-4.6-10-9.1C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.3.5.7.6.7 1.1 0C11.6 6.1 13 5 15 5 18.5 5 20 8.4 18.5 5.4 14.6 16.4 12 21 12 21z"/></svg>
       </div>
@@ -204,7 +214,7 @@
       </div>
     </div>
 
-    <div class="bar-row">
+    <div class="bar-row" id="armor-row">
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
       </div>
@@ -214,7 +224,7 @@
       </div>
     </div>
 
-    <div class="bar-row">
+    <div class="bar-row" id="water-row">
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#22d3ee"><path d="M12 2C9 7 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8-7-13z"/></svg>
       </div>
@@ -224,7 +234,7 @@
       </div>
     </div>
 
-    <div class="bar-row">
+    <div class="bar-row" id="food-row">
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M5 11a7 7 0 0 1 14 0v1H5v-1z"/><path d="M4 14h16l-1.2 4.5a2 2 0 0 1-1.9 1.5H7.1a2 2 0 0 1-1.9-1.5L4 14z"/><path d="M9 4c0 1.2-1 1.5-1 3M13 4c0 1.2-1 1.5-1 3"/></svg>
       </div>
@@ -288,7 +298,19 @@
       star.classList.toggle('filled', i < level);
       star.classList.toggle('empty', i >= level);
     });
+    setVisible('wanted-row', level > 0);
   }
+
+  // Show/hide generic, pentru orice panou - apelat din C++ in functie de
+  // nevoile gameplay-ului (ex. ascunde water/food daca serverul nu le
+  // foloseste, ascunde arma cand jucatorul are doar pumnii, etc).
+  function setVisible(id, visible) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !visible);
+  }
+
+  function showHUD() { document.querySelector('.hud').classList.remove('hidden'); }
+  function hideHUD() { document.querySelector('.hud').classList.add('hidden'); }
 
   // Demo (sterge in productie)
   setHealth(76); setArmor(40); setWater(58); setFood(85);
