@@ -18,7 +18,7 @@
 :root {
     --accent:#f3b34d; --ink:#fff6e6; --mute:#caa377;
     --gta:'Pricedown','Anton','Haettenschweiler','Impact','Arial Narrow',sans-serif;
-    --script:'Monotype Corsiva','Segoe Script','Brush Script MT','Bradley Hand','Comic Sans MS',cursive;
+    --gothic:'Old English Text MT','UnifrakturMaguntia','Blackletter686 BT','Cloister Black','Fraktur','Times New Roman',serif;
     --sans:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
     --mono:"Cascadia Code","Consolas","SF Mono","Roboto Mono",ui-monospace,monospace;
 }
@@ -57,14 +57,16 @@
     animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.05s both;
 }
 .t1 text {
-    font-family:var(--script); font-weight:400; font-style:italic;
-    font-size:108px; letter-spacing:1px;
-    fill:url(#t1g);
+    font-family:var(--gothic); font-weight:400;
+    font-size:118px; letter-spacing:1px;
+    fill:url(#t1g); stroke:#1a0f08; stroke-width:3px; paint-order:stroke fill;
 }
 .t2 {
     font-family:var(--gta); font-weight:400;
     font-size:clamp(18px,3.2vw,46px); line-height:1; letter-spacing:0.32em; text-indent:0.32em;
-    text-transform:uppercase; color:#fff2dc; margin-top:1vh; text-shadow:0 0 18px rgba(243,179,77,0.5);
+    text-transform:uppercase; color:#f5821f; margin-top:1vh;
+    -webkit-text-stroke:2px #1a0f08; paint-order:stroke fill;
+    text-shadow:0 0 18px rgba(243,179,77,0.5);
     animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.12s both;
 }
 
@@ -167,10 +169,10 @@
             <defs>
                 <linearGradient id="t1g" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0" stop-color="#ffffff"/>
-                    <stop offset="0.45" stop-color="#ffe6c2"/>
-                    <stop offset="1" stop-color="#f3b34d"/>
+                    <stop offset="0.55" stop-color="#fdf3df"/>
+                    <stop offset="1" stop-color="#e8c98a"/>
                 </linearGradient>
-                <path id="t1arc" d="M 40,165 Q 380,30 720,165" fill="none"/>
+                <path id="t1arc" d="M 30,178 Q 380,8 730,178" fill="none"/>
             </defs>
             <text text-anchor="middle">
                 <textPath href="#t1arc" startOffset="50%">SanAndreas</textPath>
