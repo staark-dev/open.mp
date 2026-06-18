@@ -56,11 +56,11 @@ static const std::map<String, ConfigStorage> Defaults {
 	{ "language", String("") },
 	{ "max_bots", 0 },
 	{ "max_players", 50 },
-	{ "name", String("open.mp server") },
+	{ "name", String("PulseHUD server") },
 	{ "password", String("") },
 	{ "sleep", 5.0f },
 	{ "use_dyn_ticks", true },
-	{ "website", String("open.mp") },
+	{ "website", String("PulseHUD") },
 	// game
 	{ "game.allow_interior_weapons", true },
 	{ "game.chat_radius", 200.0f },
@@ -1735,7 +1735,7 @@ public:
 			logFile = ::fopen(LogFileName.c_str(), "a");
 		}
 
-		printLn("Starting open.mp server (%u.%u.%u.%u) from commit %.*s", getVersion().major, getVersion().minor, getVersion().patch, getVersion().prerel, PRINT_VIEW(getVersionHash()));
+		printLn("Starting PulseHUD server (%u.%u.%u.%u) from commit %.*s", getVersion().major, getVersion().minor, getVersion().patch, getVersion().prerel, PRINT_VIEW(getVersionHash()));
 
 #ifdef OMP_STATIC_OPENSSL
 		logLn(LogLevel::Warning, "Running static OpenSSL build - plugins that use OpenSSL might crash (discord-connector, pawn-requests). It's recommended to use the dynssl build.");
