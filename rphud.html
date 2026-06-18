@@ -87,8 +87,15 @@
     max-width:100%; overflow:hidden; text-overflow:ellipsis;
   }
 
+  /* rand de sus: ceas la stanga, cutia armei in colt (ca SA-MP) */
+  .top-row {
+    display:flex; align-items:flex-start; justify-content:flex-end;
+    gap:clamp(5px,0.8vmin,10px);
+  }
+
   #time-row {
-    flex-direction:column; align-items:flex-end; gap:clamp(2px,0.3vmin,4px);
+    display:flex; flex-direction:column; align-items:flex-end; justify-content:center;
+    gap:clamp(2px,0.3vmin,4px);
     padding:clamp(7px,1vmin,12px) clamp(10px,1.4vmin,18px);
   }
   #clock {
@@ -156,12 +163,20 @@
 <body>
 <div class="hud">
 
-  <!-- TOP RIGHT: bani / wanted / ceas+zona -->
+  <!-- TOP RIGHT: ca in SA-MP - ceas la stanga cutiei armei, bani sub -->
   <div class="top-right">
-    <div id="weapon-box" class="panel">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
-      <span class="ammo" id="weaponAmmo"></span>
-      <span class="weapon-name" id="weaponName">Pumn</span>
+    <!-- rand de sus: ceas+zona la stanga, cutia armei in colt -->
+    <div class="top-row">
+      <div id="time-row" class="panel">
+        <span id="clock">00:00</span>
+        <span id="zone">San Andreas</span>
+      </div>
+
+      <div id="weapon-box" class="panel">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
+        <span class="ammo" id="weaponAmmo"></span>
+        <span class="weapon-name" id="weaponName">Pumn</span>
+      </div>
     </div>
 
     <div id="money" class="panel stat-row">
@@ -176,11 +191,6 @@
       <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
       <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
       <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
-    </div>
-
-    <div id="time-row" class="panel stat-row">
-      <span id="clock">00:00</span>
-      <span id="zone">San Andreas</span>
     </div>
   </div>
 
