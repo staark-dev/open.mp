@@ -1811,7 +1811,7 @@ public:
 		}
 
 		const SemanticVersion version = getVersion();
-		String versionStr = "open.mp " + std::to_string(version.major) + "." + std::to_string(version.minor) + "." + std::to_string(version.patch);
+		String versionStr = "PulseHUD " + std::to_string(version.major) + "." + std::to_string(version.minor) + "." + std::to_string(version.patch);
 		if (version.prerel != 0)
 		{
 			versionStr += "." + std::to_string(version.prerel);
