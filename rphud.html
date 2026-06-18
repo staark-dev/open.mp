@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fragged</title>
+<style>
+  :root {
+    --hp:#ef4444; --arm:#3b82f6; --water:#22d3ee; --food:#fbbf24; --fat:#a78bfa;
+    --accent:#4ade80;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background:transparent;
+    font-family:'Segoe UI', Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+
+  /*
+    Toate dimensiunile sunt în vmin (procent din cea mai mica dimensiune
+    a ferestrei CEF), cu clamp() pentru limite min/max - HUD-ul se scaleaza
+    automat la orice rezolutie a jocului fara zoom/transform:scale (blur).
+  */
+  .hud { position:fixed; inset:0; pointer-events:none; transition:opacity 0.2s ease-out; }
+  .hud.hidden { opacity:0; }
+
+  .panel {
+    background:rgba(15,17,20,0.55);
+    backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:clamp(6px,0.9vmin,12px);
+  }
+
+  /* ================= TOP-RIGHT: Money / Wanted / Time+Zone ================= */
+  .top-right {
+    position:absolute;
+    top:clamp(10px,1.8vmin,28px); right:clamp(10px,1.8vmin,28px);
+    display:flex; flex-direction:column; gap:clamp(5px,0.8vmin,10px);
+    align-items:flex-end;
+  }
+
+  .stat-row, .bar-row { transition:opacity 0.2s ease-out; }
+  .hidden { opacity:0; pointer-events:none; }
+
+  .stat-row {
+    display:flex; align-items:center; gap:clamp(6px,0.9vmin,12px);
+    padding:clamp(5px,0.8vmin,10px) clamp(8px,1.3vmin,16px);
+    min-width:clamp(110px,15vmin,190px);
+    justify-content:flex-end;
+  }
+
+  #money .icon { width:clamp(14px,1.8vmin,22px); height:clamp(14px,1.8vmin,22px); flex-shrink:0; }
+  #money .label {
+    font-family:'Consolas','Cascadia Code',ui-monospace,monospace;
+    font-size:clamp(14px,1.7vmin,20px); font-weight:800; letter-spacing:0.3px;
+    color:var(--accent); font-variant-numeric:tabular-nums;
+  }
+  #money.flash .label { animation:moneyflash 0.5s ease; }
+  @keyframes moneyflash { 0%{ transform:scale(1.18); filter:brightness(1.5); } 100%{ transform:scale(1); } }
+
+  #wanted-row { gap:clamp(2px,0.5vmin,6px); padding:clamp(5px,0.7vmin,9px) clamp(8px,1.3vmin,16px); }
+  .star { width:clamp(13px,1.7vmin,20px); height:clamp(13px,1.7vmin,20px); flex-shrink:0; transition:fill 0.2s ease-out; }
+  .star.filled { fill:#fbbf24; }
+  .star.empty { fill:rgba(255,255,255,0.15); }
+
+  #time-row {
+    flex-direction:column; align-items:flex-end; gap:clamp(2px,0.3vmin,4px);
+    padding:clamp(7px,1vmin,12px) clamp(10px,1.4vmin,18px);
+  }
+  #clock {
+    font-family:'Consolas','Cascadia Code',ui-monospace,monospace;
+    font-size:clamp(15px,1.9vmin,22px); font-weight:700; letter-spacing:0.04em; color:#f1f5f9;
+    font-variant-numeric:tabular-nums;
+  }
+  #zone {
+    font-family:'Consolas','Cascadia Code',ui-monospace,monospace;
+    font-size:clamp(9px,1.1vmin,13px); letter-spacing:0.12em; text-transform:uppercase; color:var(--accent);
+  }
+
+  /* ================= BOTTOM-RIGHT: HP / Armor / Apa / Mancare / Oboseala =================
+     Stanga e ocupata de minimap-ul jocului, asa ca barele stau pe dreapta. */
+  .bottom-right {
+    position:absolute;
+    bottom:clamp(12px,2vmin,30px); right:clamp(10px,1.8vmin,28px);
+    display:flex; flex-direction:column; gap:clamp(5px,0.8vmin,10px);
+    align-items:flex-end;
+  }
+
+  .bar-row { display:flex; align-items:center; gap:clamp(6px,0.9vmin,12px); }
+
+  .bar-row .icon-wrap {
+    width:clamp(22px,3vmin,34px); height:clamp(22px,3vmin,34px);
+    border-radius:clamp(5px,0.7vmin,10px);
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(15,17,20,0.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.08); flex-shrink:0;
+  }
+  .bar-row .icon-wrap svg { width:55%; height:55%; }
+
+  .bar-track {
+    width:clamp(120px,17vmin,210px); height:clamp(10px,1.4vmin,18px);
+    border-radius:clamp(5px,0.7vmin,9px);
+    background:rgba(15,17,20,0.55); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.08);
+    overflow:hidden; position:relative;
+  }
+
+  .bar-fill {
+    height:100%;
+    border-radius:clamp(5px,0.7vmin,9px) 0 0 clamp(5px,0.7vmin,9px);
+    transition:width 0.25s ease-out;
+    margin-left:auto;
+  }
+
+  /* umplerea creste de la dreapta spre stanga, ca bara sa fie langa marginea ecranului */
+  .bar-track.fill-right { direction:rtl; }
+  .bar-track.fill-right .bar-value { direction:ltr; }
+
+  #hp-fill    { background:linear-gradient(90deg, var(--hp), #f87171); width:100%; }
+  #armor-fill { background:linear-gradient(90deg, var(--arm), #60a5fa); width:100%; }
+  #water-fill { background:linear-gradient(90deg, var(--water), #67e8f9); width:100%; }
+  #food-fill  { background:linear-gradient(90deg, var(--food), #fde047); width:100%; }
+  #fat-fill   { background:linear-gradient(90deg, var(--fat), #c4b5fd); width:0%; }
+
+  .bar-value {
+    position:absolute; right:clamp(4px,0.5vmin,8px); top:50%; transform:translateY(-50%);
+    font-size:clamp(8px,1vmin,12px); font-weight:700; color:#f1f5f9;
+    text-shadow:0 1px 2px rgba(0,0,0,0.8);
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+
+  <!-- TOP RIGHT: bani / wanted / ceas+zona -->
+  <div class="top-right">
+    <div id="money" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
+      <span class="label" id="moneyVal">$0</span>
+    </div>
+
+    <div id="wanted-row" class="panel stat-row hidden">
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+    </div>
+
+    <div id="time-row" class="panel stat-row">
+      <span id="clock">00:00</span>
+      <span id="zone">San Andreas</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM RIGHT: Viata / Armura / Apa / Mancare / Oboseala -->
+  <div class="bottom-right">
+
+    <div class="bar-row" id="hp-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#f87171"><path d="M12 21s-7.5-4.6-10-9.1C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.3.5.7.6.7 1.1 0C11.6 6.1 13 5 15 5 18.5 5 20 8.4 18.5 5.4 14.6 16.4 12 21 12 21z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="hp-fill"></div>
+        <span class="bar-value" id="hpVal">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="arm-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="armor-fill"></div>
+        <span class="bar-value" id="armVal">0</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="water-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#22d3ee"><path d="M12 2C9 7 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8-7-13z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="water-fill"></div>
+        <span class="bar-value" id="waterVal">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="food-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M5 11a7 7 0 0 1 14 0v1H5v-1z"/><path d="M4 14h16l-1.2 4.5a2 2 0 0 1-1.9 1.5H7.1a2 2 0 0 1-1.9-1.5L4 14z"/><path d="M9 4c0 1.2-1 1.5-1 3M13 4c0 1.2-1 1.5-1 3"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="food-fill"></div>
+        <span class="bar-value" id="foodVal">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="fat-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#c4b5fd"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="fat-fill"></div>
+        <span class="bar-value" id="fatVal">0</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var lastMoney = null;
+
+  function clamp(v) { return Math.max(0, Math.min(100, +v || 0)); }
+
+  function setHealth(v) { v = clamp(v); $('hp-fill').style.width = v + '%'; $('hpVal').textContent = Math.round(v); }
+  function setArmor(v)  { v = clamp(v); $('armor-fill').style.width = v + '%'; $('armVal').textContent = Math.round(v); }
+  function setWater(v)  { v = clamp(v); $('water-fill').style.width = v + '%'; $('waterVal').textContent = Math.round(v); }
+  function setFood(v)   { v = clamp(v); $('food-fill').style.width = v + '%'; $('foodVal').textContent = Math.round(v); }
+  function setFatigue(v){ v = clamp(v); $('fat-fill').style.width = v + '%'; $('fatVal').textContent = Math.round(v); }
+
+  function setMoney(m) {
+    m = Math.round(+m || 0);
+    $('moneyVal').textContent = '$' + m.toLocaleString('en-US');
+    if (lastMoney !== null && m !== lastMoney) {
+      var el = $('money'); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    }
+    lastMoney = m;
+  }
+
+  function setClock(t) { $('clock').textContent = t; }
+  function setZone(z)  { $('zone').textContent = z; }
+
+  // Wanted level + show/hide generic API (la fel ca in pulsehud.html), pot fi
+  // apelate direct din C++ via ExecuteJavaScript SAU prin contractul de mesaje
+  // de mai jos (campul "wanted"/"visible" din update).
+  function setWantedLevel(level) {
+    level = Math.max(0, Math.min(6, level));
+    document.querySelectorAll('#wanted-row .star').forEach(function (star, i) {
+      star.classList.toggle('filled', i < level);
+      star.classList.toggle('empty', i >= level);
+    });
+    setVisible('wanted-row', level > 0);
+  }
+
+  function setVisible(id, visible) {
+    var el = $(id);
+    if (el) el.classList.toggle('hidden', !visible);
+  }
+
+  function showHUD() { document.querySelector('.hud').classList.remove('hidden'); }
+  function hideHUD() { document.querySelector('.hud').classList.add('hidden'); }
+
+  function handle(d) {
+    if (!d) return;
+    // Contractul bogat trimis de gamemode o data pe secunda (UpdateRpHud).
+    if (d.type === 'update') {
+      if ('hp'      in d) setHealth(d.hp);
+      if ('armor'   in d) setArmor(d.armor);
+      if ('thirst'  in d) setWater(d.thirst);    // apa
+      if ('hunger'  in d) setFood(d.hunger);     // mancare
+      if ('fatigue' in d) setFatigue(d.fatigue); // oboseala
+      if ('money'   in d) setMoney(d.money);
+      if ('time'    in d) setClock(d.time);
+      if ('zone'    in d) setZone(d.zone);
+      if ('wanted'  in d) setWantedLevel(d.wanted);
+      return;
+    }
+    // Compat cu mesajele simple {type:'setX', value:..}
+    if (d.type === 'setHealth') setHealth(d.value);
+    if (d.type === 'setArmor' || d.type === 'setArmour') setArmor(d.value);
+    if (d.type === 'setWater')   setWater(d.value);
+    if (d.type === 'setFood')    setFood(d.value);
+    if (d.type === 'setFatigue') setFatigue(d.value);
+    if (d.type === 'setMoney')   setMoney(d.value);
+    if (d.type === 'setWanted')  setWantedLevel(d.value);
+    if (d.type === 'setVisible') setVisible(d.id, d.visible);
+  }
+  window.addEventListener('message', function (e) { handle(e.data); });
+
+  // init
+  setHealth(100); setArmor(0); setWater(100); setFood(100); setFatigue(0); setMoney(0);
+
+  if (location.search.indexOf('demo') !== -1) {
+    var hp = 100, mny = 12450, fd = 82, wt = 64, ob = 20, wanted = 0;
+    setMoney(mny); setZone('Los Santos');
+    setInterval(function () {
+      hp = Math.max(15, hp - Math.random() * 4); fd = Math.max(0, fd - 0.4);
+      wt = Math.max(0, wt - 0.6); ob = Math.min(100, ob + 0.5);
+      if (Math.random() < 0.2) { mny += Math.round((Math.random() - 0.3) * 800); setMoney(mny); }
+      if (Math.random() < 0.05) { wanted = (wanted + 1) % 7; setWantedLevel(wanted); }
+      setHealth(hp); setArmor(45); setWater(wt); setFood(fd); setFatigue(ob);
+      var n = new Date(); setClock(('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2));
+    }, 700);
+  }
+})();
+</script>
+</body>
+</html>
