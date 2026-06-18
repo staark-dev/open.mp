@@ -51,6 +51,7 @@
     box-shadow:0 0 16px rgba(243,179,77,0.45);
 }
 .t1 {
+    position:relative; z-index:1;
     width:clamp(280px,52vw,760px); height:clamp(90px,16vw,210px);
     overflow:visible; display:block;
     filter:drop-shadow(0 8px 0 rgba(0,0,0,0.75)) drop-shadow(0 14px 22px rgba(0,0,0,0.6)) drop-shadow(0 0 34px rgba(243,179,77,0.45));
@@ -65,7 +66,7 @@
     position:relative; z-index:0;
     font-family:'Arial','Helvetica Neue','Helvetica',sans-serif; font-weight:700; font-style:normal;
     font-size:clamp(30px,5.2vw,72px); line-height:1; letter-spacing:0.01em;
-    text-transform:uppercase; color:#ef7f1a; margin-top:-5vh;
+    text-transform:uppercase; color:#ef7f1a; margin-top:-7.5vh;
     text-shadow:0 3px 4px rgba(0,0,0,0.55);
     animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.12s both;
 }
@@ -179,7 +180,7 @@
                     <stop offset="0.55" stop-color="#fdf3df"/>
                     <stop offset="1" stop-color="#e8c98a"/>
                 </linearGradient>
-                <path id="t1arc" d="M 30,178 Q 380,8 730,178" fill="none"/>
+                <path id="t1arc" d="M 30,162 Q 380,95 730,162" fill="none"/>
             </defs>
             <text text-anchor="middle">
                 <textPath href="#t1arc" startOffset="50%">SanAndreas</textPath>
