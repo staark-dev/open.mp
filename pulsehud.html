@@ -2,6 +2,7 @@
 <html lang="ro">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PulseHUD</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,6 +16,12 @@
     overflow: hidden;
   }
 
+  /*
+    Toate dimensiunile sunt în vmin (procent din cea mai mica dimensiune
+    a ferestrei CEF), cu clamp() pentru limite min/max. Asta face ca HUD-ul
+    sa se scaleze automat la orice rezolutie a jocului (4:3, 16:9, 16:10,
+    ultrawide) fara sa foloseasca zoom/transform:scale (care produce blur).
+  */
   .hud {
     position: fixed;
     inset: 0;
@@ -26,32 +33,32 @@
     background: rgba(15, 17, 20, 0.55);
     backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border-radius: clamp(6px, 0.9vmin, 12px);
   }
 
   /* ================= TOP-RIGHT: Money / Weapon / Time ================= */
   .top-right {
     position: absolute;
-    top: 18px;
-    right: 18px;
+    top: clamp(10px, 1.8vmin, 28px);
+    right: clamp(10px, 1.8vmin, 28px);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: clamp(5px, 0.8vmin, 10px);
     align-items: flex-end;
   }
 
   .stat-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 14px;
-    min-width: 160px;
+    gap: clamp(6px, 0.9vmin, 12px);
+    padding: clamp(5px, 0.8vmin, 10px) clamp(8px, 1.3vmin, 16px);
+    min-width: clamp(110px, 15vmin, 190px);
     justify-content: flex-end;
   }
 
-  .stat-row .icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .stat-row .icon { width: clamp(14px, 1.8vmin, 22px); height: clamp(14px, 1.8vmin, 22px); flex-shrink: 0; }
   .stat-row .label {
-    font-size: 16px;
+    font-size: clamp(12px, 1.5vmin, 18px);
     font-weight: 600;
     color: #f1f1f1;
     letter-spacing: 0.3px;
@@ -61,41 +68,44 @@
   #money .label { color: #4ade80; }
   #time .label { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 
-  #weapon-row { gap: 12px; }
+  #weapon-row { gap: clamp(8px, 1.1vmin, 14px); }
   #weapon-row .weapon-name {
-    font-size: 13px;
+    font-size: clamp(10px, 1.2vmin, 14px);
     color: #cbd5e1;
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-right: 2px;
+    white-space: nowrap;
   }
   #weapon-row .ammo {
-    font-size: 16px;
+    font-size: clamp(12px, 1.5vmin, 18px);
     font-weight: 700;
     color: #fbbf24;
     font-variant-numeric: tabular-nums;
   }
 
-  /* ================= BOTTOM-LEFT: HP / Armor / Water / Food ================= */
-  .bottom-left {
+  /* ================= BOTTOM-RIGHT: HP / Armor / Water / Food =================
+     Stanga e ocupata de minimap-ul jocului, asa ca barele stau pe dreapta. */
+  .bottom-right {
     position: absolute;
-    bottom: 22px;
-    left: 22px;
+    bottom: clamp(12px, 2vmin, 30px);
+    right: clamp(10px, 1.8vmin, 28px);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: clamp(5px, 0.8vmin, 10px);
+    align-items: flex-end;
   }
 
   .bar-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: clamp(6px, 0.9vmin, 12px);
   }
 
   .bar-row .icon-wrap {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+    width: clamp(22px, 3vmin, 34px);
+    height: clamp(22px, 3vmin, 34px);
+    border-radius: clamp(5px, 0.7vmin, 10px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -104,12 +114,12 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
   }
-  .bar-row .icon-wrap svg { width: 16px; height: 16px; }
+  .bar-row .icon-wrap svg { width: 55%; height: 55%; }
 
   .bar-track {
-    width: 180px;
-    height: 14px;
-    border-radius: 7px;
+    width: clamp(120px, 17vmin, 210px);
+    height: clamp(10px, 1.4vmin, 18px);
+    border-radius: clamp(5px, 0.7vmin, 9px);
     background: rgba(15, 17, 20, 0.55);
     backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -119,9 +129,14 @@
 
   .bar-fill {
     height: 100%;
-    border-radius: 7px 0 0 7px;
+    border-radius: clamp(5px, 0.7vmin, 9px) 0 0 clamp(5px, 0.7vmin, 9px);
     transition: width 0.25s ease-out;
+    margin-left: auto;
   }
+
+  /* umplerea creste de la dreapta spre stanga, ca bara sa fie langa marginea ecranului */
+  .bar-track.fill-right { direction: rtl; }
+  .bar-track.fill-right .bar-value { direction: ltr; }
 
   #hp-fill   { background: linear-gradient(90deg, #ef4444, #f87171); width: 100%; }
   #armor-fill{ background: linear-gradient(90deg, #3b82f6, #60a5fa); width: 100%; }
@@ -130,10 +145,10 @@
 
   .bar-value {
     position: absolute;
-    right: 6px;
+    right: clamp(4px, 0.5vmin, 8px);
     top: 50%;
     transform: translateY(-50%);
-    font-size: 10px;
+    font-size: clamp(8px, 1vmin, 12px);
     font-weight: 700;
     color: #f1f5f9;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
@@ -162,14 +177,14 @@
     </div>
   </div>
 
-  <!-- BOTTOM LEFT: HP / Armor / Water / Food -->
-  <div class="bottom-left">
+  <!-- BOTTOM RIGHT: HP / Armor / Water / Food (stanga e minimap-ul jocului) -->
+  <div class="bottom-right">
 
     <div class="bar-row">
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#f87171"><path d="M12 21s-7.5-4.6-10-9.1C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.3.5.7.6.7 1.1 0C11.6 6.1 13 5 15 5 18.5 5 20 8.4 18.5 5.4 14.6 16.4 12 21 12 21z"/></svg>
       </div>
-      <div class="bar-track">
+      <div class="bar-track fill-right">
         <div class="bar-fill" id="hp-fill"></div>
         <span class="bar-value" id="hp-value">100</span>
       </div>
@@ -179,7 +194,7 @@
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
       </div>
-      <div class="bar-track">
+      <div class="bar-track fill-right">
         <div class="bar-fill" id="armor-fill"></div>
         <span class="bar-value" id="armor-value">100</span>
       </div>
@@ -189,7 +204,7 @@
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#22d3ee"><path d="M12 2C9 7 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8-7-13z"/></svg>
       </div>
-      <div class="bar-track">
+      <div class="bar-track fill-right">
         <div class="bar-fill" id="water-fill"></div>
         <span class="bar-value" id="water-value">100</span>
       </div>
@@ -199,7 +214,7 @@
       <div class="icon-wrap">
         <svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M5 11a7 7 0 0 1 14 0v1H5v-1z"/><path d="M4 14h16l-1.2 4.5a2 2 0 0 1-1.9 1.5H7.1a2 2 0 0 1-1.9-1.5L4 14z"/><path d="M9 4c0 1.2-1 1.5-1 3M13 4c0 1.2-1 1.5-1 3"/></svg>
       </div>
-      <div class="bar-track">
+      <div class="bar-track fill-right">
         <div class="bar-fill" id="food-fill"></div>
         <span class="bar-value" id="food-value">100</span>
       </div>
