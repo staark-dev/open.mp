@@ -79,7 +79,8 @@
 .t2::after  { -webkit-text-stroke:0.06em #1a0f08; z-index:-1; }
 
 .bar {
-    position:relative; width:clamp(160px,18vw,260px); height:2px; margin:4.6vh 0 2.2vh;
+    position:fixed; right:4vw; bottom:5vh; z-index:3;
+    width:clamp(180px,22vw,320px); height:6px; margin:0;
     border-radius:999px; background:rgba(255,255,255,0.16); overflow:hidden;
     opacity:0; transition:opacity 0.6s ease;
 }
@@ -89,7 +90,7 @@
     background:var(--accent); border-radius:999px; box-shadow:0 0 12px var(--accent);
 }
 .is-failed .bar i { opacity:0.6; }
-.status { font-family:var(--mono); font-size:clamp(9px,1vw,13px); letter-spacing:0.26em; text-transform:uppercase; color:var(--mute); animation:fade 0.7s ease 0.26s both; }
+.status { font-family:var(--mono); font-size:clamp(9px,1vw,13px); letter-spacing:0.26em; text-transform:uppercase; color:var(--mute); margin-top:4.6vh; animation:fade 0.7s ease 0.26s both; }
 .is-connected .status { color:var(--accent); }
 .is-failed .status { color:#e0533b; }
 
