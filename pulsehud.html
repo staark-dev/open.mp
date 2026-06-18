@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<title>PulseHUD</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  /* ---------- Shared panel look ---------- */
+  .panel {
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+  }
+
+  /* ================= TOP-RIGHT: Money / Weapon / Time ================= */
+  .top-right {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
+  .stat-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    min-width: 160px;
+    justify-content: flex-end;
+  }
+
+  .stat-row .icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .stat-row .label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f1f1f1;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  #money .label { color: #4ade80; }
+  #time .label { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+
+  #weapon-row { gap: 12px; }
+  #weapon-row .weapon-name {
+    font-size: 13px;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 2px;
+  }
+  #weapon-row .ammo {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fbbf24;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ================= BOTTOM-LEFT: HP / Armor / Water / Food ================= */
+  .bottom-left {
+    position: absolute;
+    bottom: 22px;
+    left: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bar-row .icon-wrap {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .bar-row .icon-wrap svg { width: 16px; height: 16px; }
+
+  .bar-track {
+    width: 180px;
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 7px 0 0 7px;
+    transition: width 0.25s ease-out;
+  }
+
+  #hp-fill   { background: linear-gradient(90deg, #ef4444, #f87171); width: 100%; }
+  #armor-fill{ background: linear-gradient(90deg, #3b82f6, #60a5fa); width: 100%; }
+  #water-fill{ background: linear-gradient(90deg, #06b6d4, #22d3ee); width: 100%; }
+  #food-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); width: 100%; }
+
+  .bar-value {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    font-weight: 700;
+    color: #f1f5f9;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+
+  <!-- TOP RIGHT: original HUD position -->
+  <div class="top-right">
+    <div id="time" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <span class="label" id="time-label">12:00</span>
+    </div>
+
+    <div id="weapon" class="panel stat-row" id="weapon-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
+      <span class="weapon-name" id="weapon-name">Deagle</span>
+      <span class="ammo" id="weapon-ammo">35</span>
+    </div>
+
+    <div id="money" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
+      <span class="label" id="money-label">$0</span>
+    </div>
+  </div>
+
+  <!-- BOTTOM LEFT: HP / Armor / Water / Food -->
+  <div class="bottom-left">
+
+    <div class="bar-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#f87171"><path d="M12 21s-7.5-4.6-10-9.1C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.3.5.7.6.7 1.1 0C11.6 6.1 13 5 15 5 18.5 5 20 8.4 18.5 5.4 14.6 16.4 12 21 12 21z"/></svg>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="hp-fill"></div>
+        <span class="bar-value" id="hp-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="armor-fill"></div>
+        <span class="bar-value" id="armor-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#22d3ee"><path d="M12 2C9 7 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8-7-13z"/></svg>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="water-fill"></div>
+        <span class="bar-value" id="water-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M5 11a7 7 0 0 1 14 0v1H5v-1z"/><path d="M4 14h16l-1.2 4.5a2 2 0 0 1-1.9 1.5H7.1a2 2 0 0 1-1.9-1.5L4 14z"/><path d="M9 4c0 1.2-1 1.5-1 3M13 4c0 1.2-1 1.5-1 3"/></svg>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="food-fill"></div>
+        <span class="bar-value" id="food-value">100</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Public API: apelat din C++ via CefBrowserHost::GetMainFrame()->ExecuteJavaScript(...)
+  // Exemplu: browser->GetMainFrame()->ExecuteJavaScript("setHealth(76)", url, 0);
+
+  function clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+  function setHealth(v) {
+    v = clamp(v);
+    document.getElementById('hp-fill').style.width = v + '%';
+    document.getElementById('hp-value').textContent = Math.round(v);
+  }
+
+  function setArmor(v) {
+    v = clamp(v);
+    document.getElementById('armor-fill').style.width = v + '%';
+    document.getElementById('armor-value').textContent = Math.round(v);
+  }
+
+  function setWater(v) {
+    v = clamp(v);
+    document.getElementById('water-fill').style.width = v + '%';
+    document.getElementById('water-value').textContent = Math.round(v);
+  }
+
+  function setFood(v) {
+    v = clamp(v);
+    document.getElementById('food-fill').style.width = v + '%';
+    document.getElementById('food-value').textContent = Math.round(v);
+  }
+
+  function setMoney(amount) {
+    document.getElementById('money-label').textContent = '$' + Number(amount).toLocaleString('en-US');
+  }
+
+  function setWeapon(name, ammo) {
+    document.getElementById('weapon-name').textContent = name;
+    document.getElementById('weapon-ammo').textContent = (ammo === -1 || ammo === undefined) ? '' : ammo;
+  }
+
+  function setTime(hour, minute) {
+    const h = String(hour).padStart(2, '0');
+    const m = String(minute).padStart(2, '0');
+    document.getElementById('time-label').textContent = h + ':' + m;
+  }
+
+  // Demo (sterge in productie)
+  setHealth(76); setArmor(40); setWater(58); setFood(85);
+  setMoney(125430); setWeapon('Deagle', 35); setTime(14, 27);
+</script>
+</body>
+</html>
