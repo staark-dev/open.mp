@@ -228,7 +228,7 @@
   /* ================= FULL-SCREEN: Login / Register ================= */
   /* Singurul ecran interactiv -> are nevoie de pointer-events, restul HUD-ului ramane click-through. */
   .auth-overlay {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(6, 182, 212, 0.28));
+    background: linear-gradient(135deg, rgba(6, 95, 70, 0.6), rgba(8, 100, 130, 0.6));
     backdrop-filter: blur(10px);
     pointer-events: auto;
   }
@@ -401,9 +401,16 @@
       <div class="auth-logo">Fragged</div>
       <div class="auth-title" id="auth-title">Acest cont exista, introdu parola</div>
 
-      <div class="auth-field">
-        <label>Username</label>
-        <input type="text" id="auth-username" readonly>
+      <div class="auth-row">
+        <div class="auth-field">
+          <label>Username</label>
+          <input type="text" id="auth-username" readonly>
+        </div>
+
+        <div class="auth-field" id="auth-email-field" style="display: none;">
+          <label>Email</label>
+          <input type="email" id="auth-email" placeholder="nume@exemplu.com" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
       </div>
 
       <div class="auth-row">
@@ -552,6 +559,7 @@
     authMode = 'login';
     document.getElementById('auth-username').value = username || '';
     document.getElementById('auth-title').textContent = 'Acest cont exista, introdu parola';
+    document.getElementById('auth-email-field').style.display = 'none';
     document.getElementById('auth-confirm-field').style.display = 'none';
     document.getElementById('auth-submit').textContent = 'Conectare';
     clearAuthError();
@@ -561,7 +569,9 @@
   function showRegisterScreen(username) {
     authMode = 'register';
     document.getElementById('auth-username').value = username || '';
+    document.getElementById('auth-email').value = '';
     document.getElementById('auth-title').textContent = 'Cont nou, alege o parola';
+    document.getElementById('auth-email-field').style.display = 'flex';
     document.getElementById('auth-confirm-field').style.display = 'flex';
     document.getElementById('auth-submit').textContent = 'Înregistrare';
     clearAuthError();
@@ -587,17 +597,18 @@
   function submitAuth() {
     const password = document.getElementById('auth-password').value;
     const confirmPassword = document.getElementById('auth-confirm-password').value;
+    const email = document.getElementById('auth-email').value;
 
     if (!password) { setAuthError('Introdu parola.'); return; }
-    if (authMode === 'register' && password !== confirmPassword) {
-      setAuthError('Parolele nu coincid.');
-      return;
+    if (authMode === 'register') {
+      if (!email.includes('@')) { setAuthError('Introdu un email valid.'); return; }
+      if (password !== confirmPassword) { setAuthError('Parolele nu coincid.'); return; }
     }
 
     clearAuthError();
     setAuthLoading(true);
     // Punct de integrare cu clientul C++, ex:
-    // window.pulseHUD.submit(authMode, { password });
+    // window.fragged.submit(authMode, { password, email: authMode === 'register' ? email : undefined });
   }
 
   // Demo (sterge in productie)
