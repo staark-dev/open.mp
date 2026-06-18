@@ -18,7 +18,7 @@
 :root {
     --accent:#f3b34d; --ink:#fff6e6; --mute:#caa377;
     --gta:'Pricedown','Anton','Haettenschweiler','Impact','Arial Narrow',sans-serif;
-    --script:'Segoe Script','Brush Script MT','Bradley Hand','Comic Sans MS',cursive;
+    --script:'Monotype Corsiva','Segoe Script','Brush Script MT','Bradley Hand','Comic Sans MS',cursive;
     --sans:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
     --mono:"Cascadia Code","Consolas","SF Mono","Roboto Mono",ui-monospace,monospace;
 }
@@ -51,13 +51,15 @@
     box-shadow:0 0 16px rgba(243,179,77,0.45);
 }
 .t1 {
-    font-family:var(--script); font-weight:400; font-style:italic;
-    font-size:clamp(50px,9vw,124px); line-height:0.9; letter-spacing:0;
-    transform:skewX(-4deg);
-    background:linear-gradient(180deg, #ffffff 0%, #ffe6c2 45%, var(--accent) 100%);
-    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+    width:clamp(280px,52vw,760px); height:clamp(90px,16vw,210px);
+    overflow:visible; display:block;
     filter:drop-shadow(0 3px 0 rgba(0,0,0,0.45)) drop-shadow(0 0 30px rgba(243,179,77,0.4));
     animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.05s both;
+}
+.t1 text {
+    font-family:var(--script); font-weight:400; font-style:italic;
+    font-size:108px; letter-spacing:1px;
+    fill:url(#t1g);
 }
 .t2 {
     font-family:var(--gta); font-weight:400;
@@ -161,7 +163,19 @@
         <div class="brand">
             <span class="badge">PulsedMP</span>
         </div>
-        <div class="t1">SanAndreas</div>
+        <svg class="t1" viewBox="0 0 760 210" preserveAspectRatio="xMidYMid meet" aria-label="SanAndreas">
+            <defs>
+                <linearGradient id="t1g" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#ffffff"/>
+                    <stop offset="0.45" stop-color="#ffe6c2"/>
+                    <stop offset="1" stop-color="#f3b34d"/>
+                </linearGradient>
+                <path id="t1arc" d="M 40,165 Q 380,30 720,165" fill="none"/>
+            </defs>
+            <text text-anchor="middle">
+                <textPath href="#t1arc" startOffset="50%">SanAndreas</textPath>
+            </text>
+        </svg>
         <div class="t2">Multiplayer</div>
 
         <div class="bar"><i id="progressFill"></i></div>
