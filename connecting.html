@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<style>
+/* open.mp NUI · splash San Andreas Multiplayer — harta SA cu blipuri de jucatori.
+   Chromium 89, offline. */
+
+@font-face {
+    font-family:'Pricedown';
+    src:local('Pricedown'), local('Pricedown Bl'), local('PricedownBl'),
+        url('pricedown.ttf') format('truetype'), url('Pricedown.otf') format('opentype');
+    font-display:swap;
+}
+
+:root {
+    --accent:#5ed16a; --ink:#f4fbf5; --mute:#8fae93;
+    --gta:'Pricedown','Anton','Haettenschweiler','Impact','Arial Narrow',sans-serif;
+    --sans:"Inter","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    --mono:"Cascadia Code","Consolas","SF Mono","Roboto Mono",ui-monospace,monospace;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+.stage {
+    position:fixed; inset:0; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    background:#0e2438; color:var(--ink); font-family:var(--sans); user-select:none; text-align:center;
+    transition:opacity 0.7s ease;
+}
+.stage.is-failed { --accent:#e0533b; }
+/* Faded out on 'connected' so the game world + HUD show through during the brief
+   window before the server hides this view. Otherwise the opaque splash background
+   sits on top of the freshly-shown HUD. */
+.stage.is-hiding { opacity:0; }
+
+.map { position:absolute; inset:0; z-index:0; width:100%; height:100%; }
+#net { position:absolute; inset:0; z-index:1; }
+.vignette {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    background:radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 38%, rgba(4,12,18,0.55) 78%, rgba(4,10,14,0.85) 100%);
+}
+.maplabel { font-family:var(--mono); font-size:20px; letter-spacing:0.28em; fill:rgba(223,238,228,0.5); text-transform:uppercase; }
+
+.center {
+    position:relative; z-index:3; display:flex; flex-direction:column; align-items:center;
+    padding:2.4em 3em; border-radius:46%;
+    background:radial-gradient(closest-side, rgba(6,16,12,0.78), rgba(6,16,12,0) 76%);
+}
+.brand { display:flex; align-items:center; justify-content:center; gap:0.55em; margin-bottom:3vh; animation:rise 0.7s cubic-bezier(.2,.7,.2,1) both; }
+.brand-name { font-family:var(--sans); font-weight:800; font-size:clamp(17px,2.3vw,32px); letter-spacing:-0.01em; color:var(--ink); }
+.brand-name .accent { color:var(--accent); }
+.badge {
+    font-family:var(--mono); font-size:clamp(9px,1vw,13px); font-weight:700;
+    letter-spacing:0.18em; text-transform:uppercase;
+    color:#06200f; background:var(--accent); border-radius:6px; padding:0.4em 0.62em;
+    box-shadow:0 0 16px rgba(94,209,106,0.45);
+}
+.t1 {
+    font-family:var(--gta); font-weight:400;
+    font-size:clamp(46px,9.4vw,134px); line-height:0.84; letter-spacing:0.012em; text-transform:uppercase;
+    background:linear-gradient(180deg, #ffffff 0%, #d8ffdd 42%, var(--accent) 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+    filter:drop-shadow(0 3px 0 rgba(0,0,0,0.45)) drop-shadow(0 0 30px rgba(94,209,106,0.4));
+    animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.05s both;
+}
+.t2 {
+    font-family:var(--gta); font-weight:400;
+    font-size:clamp(20px,3.6vw,52px); line-height:1; letter-spacing:0.34em; text-indent:0.34em;
+    text-transform:uppercase; color:#e2ffe6; margin-top:0.6vh; text-shadow:0 0 18px rgba(94,209,106,0.5);
+    animation:rise 0.7s cubic-bezier(.2,.7,.2,1) 0.12s both;
+}
+
+/* Bara de progres: ascunsa la primul render (opacity 0), apare cu fade cand incepe
+   incarcarea, si se umple condusa din JS (vezi motorul de progres mai jos). */
+.bar {
+    position:relative; width:clamp(160px,18vw,260px); height:2px; margin:5vh 0 2.4vh;
+    border-radius:999px; background:rgba(255,255,255,0.14); overflow:hidden;
+    opacity:0; transition:opacity 0.6s ease;
+}
+.bar.is-shown { opacity:1; }
+.bar i {
+    position:absolute; top:0; bottom:0; left:0; width:0;
+    background:var(--accent); border-radius:999px; box-shadow:0 0 12px var(--accent);
+}
+.is-failed .bar i { opacity:0.6; }
+.status { font-family:var(--mono); font-size:clamp(9px,1vw,13px); letter-spacing:0.26em; text-transform:uppercase; color:var(--mute); animation:fade 0.7s ease 0.26s both; }
+.is-connected .status { color:var(--accent); }
+.is-failed .status { color:#e0533b; }
+.foot { position:absolute; bottom:3vh; left:0; right:0; z-index:3; font-family:var(--mono); font-size:clamp(8px,0.9vw,12px); letter-spacing:0.12em; color:#6f9b86; min-height:1em; }
+
+@keyframes rise  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fade  { from { opacity:0; } to { opacity:1; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .brand, .t1, .t2, .status { animation:none; opacity:1; transform:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+    <svg class="map" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <defs>
+            <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#15334e"/><stop offset="1" stop-color="#0c2030"/>
+            </linearGradient>
+            <linearGradient id="landg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#346f41"/><stop offset="1" stop-color="#274f31"/>
+            </linearGradient>
+            <pattern id="grid" width="160" height="160" patternUnits="userSpaceOnUse">
+                <path d="M160,0 L0,0 L0,160" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            </pattern>
+        </defs>
+
+        <rect x="0" y="0" width="1600" height="900" fill="url(#water)"/>
+        <rect x="0" y="0" width="1600" height="900" fill="url(#grid)"/>
+
+        <path fill="url(#landg)" stroke="rgba(120,200,140,0.25)" stroke-width="2" d="M300,150
+            C520,90 760,110 980,120 C1180,128 1360,190 1470,330 C1540,440 1520,560 1460,660
+            C1390,770 1180,820 1000,825 C840,828 740,790 700,760 C660,790 560,810 470,800
+            C360,786 280,700 250,560 C232,470 270,420 250,340 C236,260 270,200 300,150 Z"/>
+        <ellipse cx="200" cy="800" rx="60" ry="34" fill="url(#landg)" opacity="0.85"/>
+
+        <g fill="none" stroke="rgba(214,200,150,0.5)" stroke-width="3" stroke-linecap="round">
+            <path d="M700,720 C600,640 500,560 400,470"/>
+            <path d="M400,470 C620,360 900,300 1140,300"/>
+            <path d="M1140,300 C1120,470 950,620 720,720"/>
+            <path d="M320,300 C300,500 360,680 520,780" stroke="rgba(214,200,150,0.32)"/>
+        </g>
+        <g stroke="rgba(214,200,150,0.35)" stroke-width="2">
+            <line x1="620" y1="660" x2="820" y2="660"/><line x1="620" y1="710" x2="820" y2="710"/>
+            <line x1="660" y1="640" x2="660" y2="760"/><line x1="720" y1="640" x2="720" y2="760"/><line x1="780" y1="640" x2="780" y2="760"/>
+        </g>
+
+        <g>
+            <rect x="702" y="712" width="16" height="16" transform="rotate(45 710 720)" fill="#e6f6e9" opacity="0.8"/>
+            <text class="maplabel" x="710" y="772" text-anchor="middle">Los Santos</text>
+            <rect x="392" y="462" width="16" height="16" transform="rotate(45 400 470)" fill="#e6f6e9" opacity="0.8"/>
+            <text class="maplabel" x="400" y="522" text-anchor="middle">San Fierro</text>
+            <rect x="1132" y="292" width="16" height="16" transform="rotate(45 1140 300)" fill="#e6f6e9" opacity="0.8"/>
+            <text class="maplabel" x="1140" y="352" text-anchor="middle">Las Venturas</text>
+        </g>
+    </svg>
+
+    <canvas id="net"></canvas>
+    <div class="vignette"></div>
+
+    <div class="center">
+        <div class="brand">
+            <span class="brand-name">Pulsed<span class="accent">MP</span></span>
+            <span class="badge">NUI</span>
+        </div>
+        <div class="t1">San Andreas</div>
+        <div class="t2">Multiplayer</div>
+
+        <div class="bar"><i id="progressFill"></i></div>
+        <div class="status" id="statusText">Se conectează&hellip;</div>
+    </div>
+
+    <div class="foot"><span id="serverName"></span><span id="serverTagline"></span><span id="serverIp"></span></div>
+</div>
+
+<script>
+(function () {
+    /* ── blipuri de jucatori pe harta ── */
+    var c = document.getElementById('net'), ctx = c.getContext('2d');
+    var W = 0, H = 0, blips = [], rings = [], raf = null, glow = 1, glowT = 1, spawnAcc = 0;
+    var COLORS = ['#ffd23f','#5ed16a','#ff5b5b','#46d6e0','#ffffff','#b98cff','#3fa9ff'];
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+    function bnd() { return { x0: W * 0.12, x1: W * 0.88, y0: H * 0.15, y1: H * 0.85 }; }
+    function hexA(h, a) { var n = parseInt(h.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a.toFixed(3) + ')'; }
+
+    function init() {
+        var b = bnd();
+        var count = Math.max(14, Math.min(30, Math.round(W * H / 60000)));
+        blips = []; rings = [];
+        for (var i = 0; i < count; i++) {
+            blips.push({ x: rnd(b.x0, b.x1), y: rnd(b.y0, b.y1), vx: rnd(-0.32, 0.32), vy: rnd(-0.32, 0.32),
+                r: rnd(2.6, 4.3), col: COLORS[Math.floor(Math.random() * COLORS.length)], ph: Math.random() * 6.28 });
+        }
+    }
+    /* Canvas-ul are nevoie de un backing store scalat cu devicePixelRatio,
+       altfel pe ecrane HiDPI/4K blipurile si sageata apar neclare (acelasi
+       fel de blur intalnit la randarea CEF a HUD-ului). W/H raman in pixeli
+       CSS - tot codul de desen lucreaza cu ele - iar transform-ul de pe
+       context face scalarea reala catre pixelii fizici. */
+    function resize() {
+        var dpr = window.devicePixelRatio || 1;
+        W = window.innerWidth; H = window.innerHeight;
+        c.width = Math.round(W * dpr);
+        c.height = Math.round(H * dpr);
+        c.style.width = W + 'px';
+        c.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        init();
+    }
+
+    function arrow(x, y) {
+        ctx.save(); ctx.translate(x, y);
+        ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 12; ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.moveTo(0, -11); ctx.lineTo(7, 9); ctx.lineTo(0, 4); ctx.lineTo(-7, 9); ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+
+    function frame(t) {
+        glow += (glowT - glow) * 0.05;
+        ctx.clearRect(0, 0, W, H);
+        var b = bnd(), i, p;
+
+        ctx.globalCompositeOperation = 'lighter';
+        for (i = 0; i < blips.length; i++) {
+            p = blips[i]; p.x += p.vx; p.y += p.vy;
+            if (p.x < b.x0 || p.x > b.x1) p.vx *= -1;
+            if (p.y < b.y0 || p.y > b.y1) p.vy *= -1;
+            var pulse = 0.7 + 0.3 * Math.sin(t / 500 + p.ph);
+            var halo = p.r * 5 * glow;
+            var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, halo);
+            g.addColorStop(0, hexA(p.col, 0.55 * pulse * glow));
+            g.addColorStop(1, hexA(p.col, 0));
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, halo, 0, 7); ctx.fill();
+            ctx.fillStyle = p.col; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+
+        spawnAcc++;
+        if (spawnAcc > 60 && rings.length < 6 && blips.length) { var s = blips[Math.floor(Math.random() * blips.length)]; rings.push({ x: s.x, y: s.y, t: 0, col: s.col }); spawnAcc = 0; }
+        ctx.lineWidth = 1.5;
+        for (i = rings.length - 1; i >= 0; i--) {
+            var r = rings[i]; r.t += 0.02;
+            if (r.t >= 1) { rings.splice(i, 1); continue; }
+            ctx.strokeStyle = hexA(r.col, (1 - r.t) * 0.6);
+            ctx.beginPath(); ctx.arc(r.x, r.y, 4 + r.t * 30, 0, 7); ctx.stroke();
+        }
+
+        arrow(W * 0.5, H * 0.56);
+        tickProgress();
+        raf = requestAnimationFrame(frame);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+    if (reduce) { frame(0); cancelAnimationFrame(raf); } else { frame(0); }
+
+    /* ── motor de progres ──────────────────────────────────────────────────────
+       Cerinte:
+        • bara NU apare la primul render (porneste cu opacity 0, latime 0);
+        • apare treptat (fade-in) odata ce incep sa se incarce resursele paginii;
+        • se umple gradual cat dureaza incarcarea/conectarea (creep asimptotic);
+        • ajunge la 100% fix inainte ca UI-ul sa se ascunda (la 'connected').
+       Progresul real poate fi condus din .dll/server:
+        postMessage({type:'progress', pct:0..100, label:'...'})  sau  {bytes, total}. */
+    var bar = document.querySelector('.bar');
+    var fill = document.getElementById('progressFill');
+    var pcur = 0, ptarget = 0, pceil = 0, pshown = false, pdone = false;
+
+    function paintBar() { fill.style.width = pcur.toFixed(2) + '%'; }
+    function showBar() {
+        if (pshown) return;
+        pshown = true;
+        bar.classList.add('is-shown');     // fade-in: "apare treptat"
+    }
+    function creepTo(ceil, label) {        // urca gradual catre un plafon, fara sa-l atinga
+        showBar(); if (ceil > pceil) pceil = ceil;
+        if (label) elStatus.textContent = label;
+        if (reduce) { pcur = Math.min(pceil, 60); paintBar(); }
+    }
+    function setPct(pct, label) {           // progres real, explicit
+        showBar(); pct = Math.max(0, Math.min(100, pct));
+        if (pct > ptarget) ptarget = pct;
+        if (ptarget > pceil) pceil = ptarget;
+        if (label) elStatus.textContent = label;
+        if (reduce) { pcur = ptarget; paintBar(); }
+    }
+    function finishBar() {                   // umple complet inainte de ascundere
+        showBar(); pdone = true; pceil = 100; ptarget = 100;
+        if (reduce) { pcur = 100; paintBar(); }
+    }
+
+    function tickProgress() {
+        if (!pshown || reduce) return;
+        if (!pdone) {
+            // creep asimptotic catre plafon (umplere graduala, vie dar fara salturi)
+            if (ptarget < pceil) ptarget += (pceil - ptarget) * 0.018 + 0.04;
+            if (ptarget > pceil) ptarget = pceil;
+        }
+        pcur += (ptarget - pcur) * (pdone ? 0.16 : 0.07);
+        if (pdone && pcur > 99.5) pcur = 100;
+        paintBar();
+    }
+
+    /* Resursele paginii s-au incarcat -> arata bara si porneste umplerea. */
+    function onResourcesReady() { creepTo(40, 'Se încarcă resursele…'); }
+    if (document.readyState === 'complete') onResourcesReady();
+    else window.addEventListener('load', onResourcesReady);
+
+    /* ── contract DLL/server ── */
+    var stage = document.getElementById('stage');
+    var elName = document.getElementById('serverName');
+    var elTag  = document.getElementById('serverTagline');
+    var elIp   = document.getElementById('serverIp');
+    var elStatus = document.getElementById('statusText');
+
+    function handle(d) {
+        if (!d || !d.type) return;
+        if (d.type === 'connecting') {
+            stage.classList.remove('is-connected', 'is-failed'); glowT = 1;
+            if (d.name)    elName.textContent = d.name + '  ·  ';
+            if (d.tagline) elTag.textContent  = d.tagline + '  ·  ';
+            if (d.ip)      elIp.textContent    = d.ip;
+            creepTo(92, 'Se conectează…');     // umplere graduala pe durata conectarii
+        }
+        if (d.type === 'progress') {
+            var pct = (typeof d.pct === 'number') ? d.pct : (d.total ? (d.bytes / d.total) * 100 : 0);
+            setPct(pct, d.label);
+        }
+        if (d.type === 'connected') {
+            stage.classList.remove('is-failed'); stage.classList.add('is-connected');
+            glowT = 1.7; elStatus.textContent = 'Conectat';
+            finishBar();                            // 100% chiar inainte sa se ascunda UI
+            // Fade intregul splash spre transparent ca lumea jocului + HUD-ul sa
+            // se vada inainte ca serverul sa ascunda view-ul (~1.2s dupa spawn).
+            setTimeout(function () { stage.classList.add('is-hiding'); }, 300);
+        }
+        if (d.type === 'failed') {
+            stage.classList.remove('is-connected'); stage.classList.add('is-failed');
+            elStatus.textContent = d.reason || 'Conexiune eșuată'; glowT = 0.45;
+        }
+    }
+    // Acceptam doar mesaje postate pe aceasta fereastra de catre scriptul propriu
+    // (ex. cod injectat de host-ul C++ in chiar acest context), nu din alte
+    // ferestre/iframe-uri straine, ca sa nu poata fi simulat fals un 'connected'.
+    window.addEventListener('message', function (e) {
+        if (e.source !== window) return;
+        handle(e.data);
+    });
+
+    if (location.search.indexOf('demo') !== -1) {
+        handle({ type:'connecting', name:'Los Santos RP', ip:'185.12.34.56:7777' });
+        setTimeout(function () { handle({ type:'connected' }); }, 4200);
+    }
+})();
+</script>
+
+</body>
+</html>

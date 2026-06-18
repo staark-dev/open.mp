@@ -850,7 +850,7 @@ void RakNetLegacyNetwork::start()
 	query.setCore(core);
 
 	std::stringstream version;
-	version << "omp " << OMP_VERSION_MAJOR << "." << OMP_VERSION_MINOR << "." << OMP_VERSION_PATCH << "." << BUILD_NUMBER;
+	version << "PulseHUD " << OMP_VERSION_MAJOR << "." << OMP_VERSION_MINOR << "." << OMP_VERSION_PATCH << "." << BUILD_NUMBER;
 	query.setRuleValue<false>("version", version.str());
 	// Send as a rule to announce which clients are allowed to join
 	query.setRuleValue<false>("allowed_clients", !allow037 ? "0.3.DL" : "0.3.7, 0.3.DL");

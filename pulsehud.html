@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fragged</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /*
+    Toate dimensiunile sunt în vmin (procent din cea mai mica dimensiune
+    a ferestrei CEF), cu clamp() pentru limite min/max. Asta face ca HUD-ul
+    sa se scaleze automat la orice rezolutie a jocului (4:3, 16:9, 16:10,
+    ultrawide) fara sa foloseasca zoom/transform:scale (care produce blur).
+  */
+  .hud {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+
+  /* ---------- Shared panel look ---------- */
+  .panel {
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: clamp(6px, 0.9vmin, 12px);
+  }
+
+  /* ================= TOP-RIGHT: Money / Weapon / Time ================= */
+  .top-right {
+    position: absolute;
+    top: clamp(10px, 1.8vmin, 28px);
+    right: clamp(10px, 1.8vmin, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(5px, 0.8vmin, 10px);
+    align-items: flex-end;
+  }
+
+  .stat-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.9vmin, 12px);
+    padding: clamp(5px, 0.8vmin, 10px) clamp(8px, 1.3vmin, 16px);
+    min-width: clamp(110px, 15vmin, 190px);
+    justify-content: flex-end;
+  }
+
+  .stat-row .icon { width: clamp(14px, 1.8vmin, 22px); height: clamp(14px, 1.8vmin, 22px); flex-shrink: 0; }
+  .stat-row .label {
+    font-size: clamp(12px, 1.5vmin, 18px);
+    font-weight: 600;
+    color: #f1f1f1;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  #money .label { color: #4ade80; }
+  #time .label { color: #e2e8f0; font-variant-numeric: tabular-nums; }
+
+  #wanted-row { gap: clamp(2px, 0.5vmin, 6px); padding: clamp(5px, 0.7vmin, 9px) clamp(8px, 1.3vmin, 16px); }
+  .star { width: clamp(13px, 1.7vmin, 20px); height: clamp(13px, 1.7vmin, 20px); flex-shrink: 0; transition: fill 0.2s ease-out; }
+  .star.filled { fill: #fbbf24; }
+  .star.empty { fill: rgba(255, 255, 255, 0.15); }
+
+  #weapon-row { gap: clamp(8px, 1.1vmin, 14px); }
+  #weapon-row .weapon-name {
+    font-size: clamp(10px, 1.2vmin, 14px);
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-right: 2px;
+    white-space: nowrap;
+  }
+  #weapon-row .ammo {
+    font-size: clamp(12px, 1.5vmin, 18px);
+    font-weight: 700;
+    color: #fbbf24;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ================= BOTTOM-RIGHT: HP / Armor / Water / Food =================
+     Stanga e ocupata de minimap-ul jocului, asa ca barele stau pe dreapta. */
+  .bottom-right {
+    position: absolute;
+    bottom: clamp(12px, 2vmin, 30px);
+    right: clamp(10px, 1.8vmin, 28px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(5px, 0.8vmin, 10px);
+    align-items: flex-end;
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.9vmin, 12px);
+  }
+
+  /* ---------- Show/hide control (driven from gameplay via JS API) ---------- */
+  .stat-row, .bar-row {
+    transition: opacity 0.2s ease-out;
+  }
+  .hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .bar-row .icon-wrap {
+    width: clamp(22px, 3vmin, 34px);
+    height: clamp(22px, 3vmin, 34px);
+    border-radius: clamp(5px, 0.7vmin, 10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+  .bar-row .icon-wrap svg { width: 55%; height: 55%; }
+
+  .bar-track {
+    width: clamp(120px, 17vmin, 210px);
+    height: clamp(10px, 1.4vmin, 18px);
+    border-radius: clamp(5px, 0.7vmin, 9px);
+    background: rgba(15, 17, 20, 0.55);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: clamp(5px, 0.7vmin, 9px) 0 0 clamp(5px, 0.7vmin, 9px);
+    transition: width 0.25s ease-out;
+    margin-left: auto;
+  }
+
+  /* umplerea creste de la dreapta spre stanga, ca bara sa fie langa marginea ecranului */
+  .bar-track.fill-right { direction: rtl; }
+  .bar-track.fill-right .bar-value { direction: ltr; }
+
+  #hp-fill   { background: linear-gradient(90deg, #ef4444, #f87171); width: 100%; }
+  #armor-fill{ background: linear-gradient(90deg, #3b82f6, #60a5fa); width: 100%; }
+  #water-fill{ background: linear-gradient(90deg, #06b6d4, #22d3ee); width: 100%; }
+  #food-fill { background: linear-gradient(90deg, #f59e0b, #fbbf24); width: 100%; }
+
+  .bar-value {
+    position: absolute;
+    right: clamp(4px, 0.5vmin, 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: clamp(8px, 1vmin, 12px);
+    font-weight: 700;
+    color: #f1f5f9;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  /* ================= FULL-SCREEN: OnPlayerConnect / OnPlayerDeath ================= */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease-out;
+  }
+  .overlay.visible { opacity: 1; visibility: visible; }
+
+  #connect-screen {
+    background: radial-gradient(circle at center, rgba(10, 12, 15, 0.85), rgba(5, 6, 8, 0.95));
+  }
+  #connect-screen .logo {
+    font-size: clamp(28px, 5vmin, 56px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #f1f5f9;
+    text-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+  }
+  #connect-screen .welcome-msg {
+    font-size: clamp(14px, 1.8vmin, 22px);
+    color: #cbd5e1;
+    margin-top: clamp(8px, 1vmin, 14px);
+  }
+  #connect-screen .player-name { color: #4ade80; font-weight: 700; }
+
+  #death-screen {
+    background: radial-gradient(ellipse at center, rgba(80, 0, 0, 0.25), rgba(5, 0, 0, 0.85));
+  }
+  #death-screen .death-title {
+    font-size: clamp(26px, 5vmin, 52px);
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ef4444;
+    text-shadow: 0 0 24px rgba(239, 68, 68, 0.6);
+  }
+  #death-screen .death-info {
+    font-size: clamp(14px, 1.8vmin, 20px);
+    color: #e2e8f0;
+    margin-top: clamp(6px, 1vmin, 12px);
+  }
+  #death-screen .killer-name, #death-screen .weapon-name { color: #fbbf24; font-weight: 700; }
+  #death-screen .respawn-count {
+    margin-top: clamp(14px, 2vmin, 28px);
+    font-size: clamp(34px, 6vmin, 64px);
+    font-weight: 800;
+    color: #f87171;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ================= FULL-SCREEN: Login / Register ================= */
+  /* Singurul ecran interactiv -> are nevoie de pointer-events, restul HUD-ului ramane click-through. */
+  .auth-overlay {
+    background: linear-gradient(135deg, rgba(6, 95, 70, 0.6), rgba(8, 100, 130, 0.6));
+    backdrop-filter: blur(10px);
+    pointer-events: auto;
+  }
+
+  .auth-panel {
+    width: clamp(360px, 42vmin, 620px);
+    padding: clamp(16px, 2vmin, 24px) clamp(24px, 3vmin, 36px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 1vmin, 12px);
+  }
+
+  .auth-row {
+    display: flex;
+    gap: clamp(10px, 1.4vmin, 18px);
+  }
+  .auth-row .auth-field { flex: 1; }
+
+  .auth-logo {
+    font-size: clamp(20px, 3vmin, 30px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #f1f5f9;
+    text-align: center;
+    text-shadow: 0 0 16px rgba(74, 222, 128, 0.4);
+  }
+
+  .auth-title {
+    text-align: center;
+    font-size: clamp(13px, 1.6vmin, 17px);
+    font-weight: 600;
+    color: #cbd5e1;
+    letter-spacing: 0.3px;
+  }
+
+  .auth-field { display: flex; flex-direction: column; gap: clamp(4px, 0.5vmin, 6px); }
+  .auth-field label {
+    font-size: clamp(10px, 1.2vmin, 13px);
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+  }
+  .auth-field input {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: clamp(5px, 0.7vmin, 8px);
+    padding: clamp(8px, 1.1vmin, 12px);
+    color: #f1f5f9;
+    font-size: clamp(13px, 1.5vmin, 16px);
+    outline: none;
+    font-family: inherit;
+  }
+  .auth-field input:focus { border-color: #4ade80; }
+  .auth-field input:read-only { color: #94a3b8; background: rgba(255, 255, 255, 0.03); }
+
+  .auth-error {
+    min-height: clamp(14px, 1.8vmin, 18px);
+    font-size: clamp(11px, 1.3vmin, 14px);
+    color: #f87171;
+    text-align: center;
+  }
+
+  .auth-submit {
+    padding: clamp(9px, 1.3vmin, 14px);
+    border: none;
+    border-radius: clamp(6px, 0.8vmin, 10px);
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    color: #052e16;
+    font-weight: 700;
+    font-size: clamp(13px, 1.5vmin, 16px);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .auth-submit:disabled { opacity: 0.6; cursor: default; }
+</style>
+</head>
+<body>
+<div class="hud">
+
+  <!-- TOP RIGHT: original HUD position -->
+  <div class="top-right">
+    <div id="time" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <span class="label" id="time-label">12:00</span>
+    </div>
+
+    <div id="weapon-row" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
+      <span class="weapon-name" id="weapon-name">Deagle</span>
+      <span class="ammo" id="weapon-ammo">35</span>
+    </div>
+
+    <div id="money" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
+      <span class="label" id="money-label">$0</span>
+    </div>
+
+    <div id="wanted-row" class="panel stat-row">
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+    </div>
+  </div>
+
+  <!-- BOTTOM RIGHT: HP / Armor / Water / Food (stanga e minimap-ul jocului) -->
+  <div class="bottom-right">
+
+    <div class="bar-row" id="hp-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#f87171"><path d="M12 21s-7.5-4.6-10-9.1C.4 8.4 2 5 5.5 5c2 0 3.4 1.1 4.2 2.3.5.7.6.7 1.1 0C11.6 6.1 13 5 15 5 18.5 5 20 8.4 18.5 5.4 14.6 16.4 12 21 12 21z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="hp-fill"></div>
+        <span class="bar-value" id="hp-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="armor-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="armor-fill"></div>
+        <span class="bar-value" id="armor-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="water-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#22d3ee"><path d="M12 2C9 7 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-4-8-7-13z"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="water-fill"></div>
+        <span class="bar-value" id="water-value">100</span>
+      </div>
+    </div>
+
+    <div class="bar-row" id="food-row">
+      <div class="icon-wrap">
+        <svg viewBox="0 0 24 24" fill="#fbbf24"><path d="M5 11a7 7 0 0 1 14 0v1H5v-1z"/><path d="M4 14h16l-1.2 4.5a2 2 0 0 1-1.9 1.5H7.1a2 2 0 0 1-1.9-1.5L4 14z"/><path d="M9 4c0 1.2-1 1.5-1 3M13 4c0 1.2-1 1.5-1 3"/></svg>
+      </div>
+      <div class="bar-track fill-right">
+        <div class="bar-fill" id="food-fill"></div>
+        <span class="bar-value" id="food-value">100</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ONPLAYERCONNECT: ecran de bun-venit -->
+  <div id="connect-screen" class="overlay">
+    <div class="logo">Fragged</div>
+    <div class="welcome-msg">Bine ai venit, <span class="player-name" id="connect-player-name">Player</span>!</div>
+  </div>
+
+  <!-- ONPLAYERDEATH: ecran de moarte + countdown respawn -->
+  <div id="death-screen" class="overlay">
+    <div class="death-title">AI FOST ELIMINAT</div>
+    <div class="death-info">Ucis de <span class="killer-name" id="death-killer-name">lume</span> cu <span class="weapon-name" id="death-weapon-name">—</span></div>
+    <div class="respawn-count" id="death-respawn-count">5</div>
+  </div>
+
+  <!-- LOGIN / REGISTER -->
+  <div id="auth-screen" class="overlay auth-overlay">
+    <div class="auth-panel panel">
+      <div class="auth-logo">Fragged</div>
+      <div class="auth-title" id="auth-title">Acest cont exista, introdu parola</div>
+
+      <div class="auth-row">
+        <div class="auth-field">
+          <label>Username</label>
+          <input type="text" id="auth-username" readonly>
+        </div>
+
+        <div class="auth-field" id="auth-email-field" style="display: none;">
+          <label>Email</label>
+          <input type="email" id="auth-email" placeholder="nume@exemplu.com" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
+      </div>
+
+      <div class="auth-row">
+        <div class="auth-field">
+          <label>Parolă</label>
+          <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
+
+        <div class="auth-field" id="auth-confirm-field" style="display: none;">
+          <label>Confirmă parola</label>
+          <input type="password" id="auth-confirm-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
+      </div>
+
+      <div class="auth-error" id="auth-error"></div>
+
+      <button type="button" class="auth-submit" id="auth-submit" onclick="submitAuth()">Conectare</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Public API: apelat din C++ via CefBrowserHost::GetMainFrame()->ExecuteJavaScript(...)
+  // Exemplu: browser->GetMainFrame()->ExecuteJavaScript("setHealth(76)", url, 0);
+
+  function clamp(v) { return Math.max(0, Math.min(100, v)); }
+
+  function setHealth(v) {
+    v = clamp(v);
+    document.getElementById('hp-fill').style.width = v + '%';
+    document.getElementById('hp-value').textContent = Math.round(v);
+  }
+
+  function setArmor(v) {
+    v = clamp(v);
+    document.getElementById('armor-fill').style.width = v + '%';
+    document.getElementById('armor-value').textContent = Math.round(v);
+  }
+
+  function setWater(v) {
+    v = clamp(v);
+    document.getElementById('water-fill').style.width = v + '%';
+    document.getElementById('water-value').textContent = Math.round(v);
+  }
+
+  function setFood(v) {
+    v = clamp(v);
+    document.getElementById('food-fill').style.width = v + '%';
+    document.getElementById('food-value').textContent = Math.round(v);
+  }
+
+  function setMoney(amount) {
+    document.getElementById('money-label').textContent = '$' + Number(amount).toLocaleString('en-US');
+  }
+
+  function setWeapon(name, ammo) {
+    document.getElementById('weapon-name').textContent = name;
+    document.getElementById('weapon-ammo').textContent = (ammo === -1 || ammo === undefined) ? '' : ammo;
+  }
+
+  function setTime(hour, minute) {
+    const h = String(hour).padStart(2, '0');
+    const m = String(minute).padStart(2, '0');
+    document.getElementById('time-label').textContent = h + ':' + m;
+  }
+
+  function setWantedLevel(level) {
+    level = Math.max(0, Math.min(6, level));
+    document.querySelectorAll('#wanted-row .star').forEach((star, i) => {
+      star.classList.toggle('filled', i < level);
+      star.classList.toggle('empty', i >= level);
+    });
+    setVisible('wanted-row', level > 0);
+  }
+
+  // Show/hide generic, pentru orice panou - apelat din C++ in functie de
+  // nevoile gameplay-ului (ex. ascunde water/food daca serverul nu le
+  // foloseste, ascunde arma cand jucatorul are doar pumnii, etc).
+  function setVisible(id, visible) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !visible);
+  }
+
+  function showHUD() { document.querySelector('.hud').classList.remove('hidden'); }
+  function hideHUD() { document.querySelector('.hud').classList.add('hidden'); }
+
+  // ---------- OnPlayerConnect: ecran de bun-venit ----------
+  // Apelat o singura data, cand jucatorul local s-a conectat la server.
+  // Daca durationMs e dat, ecranul se ascunde automat dupa atat timp,
+  // altfel trebuie apelat explicit hideConnectScreen() (ex. la primul spawn).
+  let connectHideTimer = null;
+
+  function showConnectScreen(playerName, durationMs) {
+    document.getElementById('connect-player-name').textContent = playerName || 'Player';
+    document.getElementById('connect-screen').classList.add('visible');
+    clearTimeout(connectHideTimer);
+    if (durationMs !== undefined) {
+      connectHideTimer = setTimeout(hideConnectScreen, durationMs);
+    }
+  }
+
+  function hideConnectScreen() {
+    clearTimeout(connectHideTimer);
+    document.getElementById('connect-screen').classList.remove('visible');
+  }
+
+  // ---------- OnPlayerDeath: ecran de moarte + countdown respawn ----------
+  // killerName/weaponName pot fi omise (ex. moarte din cadere/inec), caz in
+  // care textul rămâne pe valorile default ("lume" / "—").
+  let deathRespawnTimer = null;
+
+  function showDeathScreen(killerName, weaponName, respawnSeconds) {
+    document.getElementById('death-killer-name').textContent = killerName || 'lume';
+    document.getElementById('death-weapon-name').textContent = weaponName || '—';
+
+    let remaining = respawnSeconds === undefined ? 5 : respawnSeconds;
+    const countEl = document.getElementById('death-respawn-count');
+    countEl.textContent = remaining;
+    document.getElementById('death-screen').classList.add('visible');
+
+    clearInterval(deathRespawnTimer);
+    deathRespawnTimer = setInterval(() => {
+      remaining--;
+      countEl.textContent = Math.max(remaining, 0);
+      if (remaining <= 0) {
+        hideDeathScreen();
+      }
+    }, 1000);
+  }
+
+  function hideDeathScreen() {
+    clearInterval(deathRespawnTimer);
+    document.getElementById('death-screen').classList.remove('visible');
+  }
+
+  // ---------- Login / Register ----------
+  // Niciun tab - serverul decide: verifica in DB daca username-ul are deja
+  // cont si apeleaza showLoginScreen() sau showRegisterScreen() in
+  // consecinta. Username e read-only (vine din jocul/launcher-ul local).
+  // Trimiterea efectiva catre server se face din C++, prin bridge-ul
+  // JS<->native (ex. window.pulseHUD.submit(mode, data)) - vezi
+  // recomandarea cu extensia V8, nu e implementata in acest mockup.
+  let authMode = 'login';
+
+  function showLoginScreen(username) {
+    authMode = 'login';
+    document.getElementById('auth-username').value = username || '';
+    document.getElementById('auth-title').textContent = 'Acest cont exista, introdu parola';
+    document.getElementById('auth-email-field').style.display = 'none';
+    document.getElementById('auth-confirm-field').style.display = 'none';
+    document.getElementById('auth-submit').textContent = 'Conectare';
+    clearAuthError();
+    document.getElementById('auth-screen').classList.add('visible');
+  }
+
+  function showRegisterScreen(username) {
+    authMode = 'register';
+    document.getElementById('auth-username').value = username || '';
+    document.getElementById('auth-email').value = '';
+    document.getElementById('auth-title').textContent = 'Cont nou, alege o parola';
+    document.getElementById('auth-email-field').style.display = 'flex';
+    document.getElementById('auth-confirm-field').style.display = 'flex';
+    document.getElementById('auth-submit').textContent = 'Înregistrare';
+    clearAuthError();
+    document.getElementById('auth-screen').classList.add('visible');
+  }
+
+  function hideAuthScreen() {
+    document.getElementById('auth-screen').classList.remove('visible');
+  }
+
+  function setAuthError(message) {
+    document.getElementById('auth-error').textContent = message || '';
+  }
+
+  function clearAuthError() { setAuthError(''); }
+
+  function setAuthLoading(loading) {
+    const btn = document.getElementById('auth-submit');
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Se trimite...' : (authMode === 'register' ? 'Înregistrare' : 'Conectare');
+  }
+
+  function submitAuth() {
+    const password = document.getElementById('auth-password').value;
+    const confirmPassword = document.getElementById('auth-confirm-password').value;
+    const email = document.getElementById('auth-email').value;
+
+    if (!password) { setAuthError('Introdu parola.'); return; }
+    if (authMode === 'register') {
+      if (!email.includes('@')) { setAuthError('Introdu un email valid.'); return; }
+      if (password !== confirmPassword) { setAuthError('Parolele nu coincid.'); return; }
+    }
+
+    clearAuthError();
+    setAuthLoading(true);
+    // Punct de integrare cu clientul C++, ex:
+    // window.fragged.submit(authMode, { password, email: authMode === 'register' ? email : undefined });
+  }
+
+  // Demo (sterge in productie)
+  setHealth(76); setArmor(40); setWater(58); setFood(85);
+  setMoney(125430); setWeapon('Deagle', 35); setTime(14, 27);
+  setWantedLevel(3);
+</script>
+</body>
+</html>

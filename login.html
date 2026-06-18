@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    --accent:#2dd4bf; --ink:#f1fbfa; --mute:#85a8a8; --bad:#e0533b;
+    --sans:"Segoe UI","Inter",system-ui,Arial,sans-serif;
+    --mono:"Consolas","Cascadia Code",ui-monospace,monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:transparent; }
+  body { font-family:var(--sans); color:var(--ink); cursor:none; user-select:none; }
+
+  /* pagina full-screen — acopera tot jocul */
+  .page {
+    position:fixed; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:
+      radial-gradient(130% 110% at 50% 35%, rgba(8,36,42,0.86) 0%, rgba(5,22,28,0.94) 55%, rgba(3,10,14,0.98) 100%);
+  }
+  .page::before {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(60% 50% at 50% 42%, rgba(45,212,191,0.10), transparent 70%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 2px, transparent 2px 4px);
+  }
+
+  .brand { position:relative; font-weight:800; font-size:clamp(34px,5vw,64px); letter-spacing:-0.02em;
+           margin-bottom:2px; filter:drop-shadow(0 4px 14px rgba(0,0,0,0.6)); }
+  .brand span { color:var(--accent); }
+  .brandrow { display:flex; align-items:center; justify-content:center; gap:clamp(8px,1vw,16px); margin-bottom:2px; }
+  .brandrow .brand { margin-bottom:0; }
+  .badge { font-family:var(--mono); font-size:clamp(10px,1.1vw,14px); font-weight:700; letter-spacing:0.16em;
+           text-transform:uppercase; color:#042824; background:var(--accent); border-radius:clamp(5px,0.6vw,8px);
+           padding:clamp(4px,0.5vw,6px) clamp(7px,0.9vw,11px); box-shadow:0 0 14px rgba(45,212,191,0.4); }
+  .sub { position:relative; font-family:var(--mono); font-size:clamp(10px,1.1vw,14px); letter-spacing:0.34em;
+         text-transform:uppercase; color:var(--mute); margin-bottom:3.4vh; }
+
+  .form { position:relative; width:clamp(300px,32vw,460px); max-width:88vw; }
+  .welcome { text-align:center; font-size:clamp(13px,1.4vw,17px); color:var(--ink); margin-bottom:2.4vh; }
+  .welcome b { color:var(--accent); font-weight:800; }
+
+  .field { margin-bottom:1.6vh; }
+  .field label { display:block; font-size:clamp(9px,1vw,12px); letter-spacing:0.16em; text-transform:uppercase;
+                 color:var(--mute); margin-bottom:0.7vh; }
+  .field input {
+    width:100%; padding:clamp(11px,1.3vw,16px) clamp(12px,1.4vw,18px); font-size:clamp(13px,1.4vw,17px); font-family:var(--sans);
+    color:var(--ink); background:rgba(0,0,0,0.45);
+    border:1px solid rgba(255,255,255,0.14); border-radius:clamp(8px,1vw,13px); outline:none;
+  }
+  .field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(45,212,191,0.20); }
+
+  .btn {
+    width:100%; margin-top:1vh; padding:clamp(12px,1.5vw,17px) 0; font-size:clamp(13px,1.4vw,17px); font-weight:800;
+    color:#042824; background:var(--accent); border:none; border-radius:clamp(9px,1.1vw,14px); cursor:none;
+    box-shadow:0 8px 22px rgba(45,212,191,0.32);
+  }
+  .btn:focus { outline:2px solid #fff; outline-offset:2px; }
+  .btn:disabled { opacity:0.55; }
+
+  .msg { min-height:2vh; margin-top:1.5vh; text-align:center; font-size:clamp(11px,1.2vw,15px); font-family:var(--mono); }
+  .msg.err { color:var(--bad); }
+  .msg.ok  { color:var(--accent); }
+
+  .hint { position:relative; margin-top:3vh; font-size:clamp(9px,1vw,13px); color:var(--mute); font-family:var(--mono); }
+
+  /* cursor custom (jocul ascunde cursorul OS) */
+  #cursor {
+    position:fixed; top:0; left:0; width:clamp(12px,1.4vw,18px); height:clamp(12px,1.4vw,18px); margin:-7px 0 0 -7px;
+    border:2px solid #fff; border-radius:50%; background:rgba(45,212,191,0.35);
+    box-shadow:0 0 6px rgba(0,0,0,0.6); pointer-events:none; z-index:9999;
+    transform:translate(-100px,-100px);
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="brandrow">
+      <div class="brand">Pulsed<span>MP</span></div>
+      <span class="badge">NUI</span>
+    </div>
+    <div class="sub" id="subtitle">Autentificare</div>
+
+    <div class="form">
+      <div class="welcome">Salut, <b id="pname">jucător</b></div>
+
+      <div class="field" id="emailWrap" style="display:none">
+        <label>Email</label>
+        <input id="email" type="text" maxlength="60" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label id="passLabel">Parolă</label>
+        <input id="pass" type="password" maxlength="32" autocomplete="off">
+      </div>
+      <div class="field" id="confirmWrap" style="display:none">
+        <label>Confirmă parola</label>
+        <input id="confirm" type="password" maxlength="32" autocomplete="off">
+      </div>
+
+      <button class="btn" id="submit">Intră în joc</button>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="hint">Enter = trimiți</div>
+  </div>
+  <div id="cursor"></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var mode = 'login', busy = false;
+  var TOKEN = window.__NUI_TOKEN__ || '';
+  var BASE  = window.__NUI_BASE_URL__ || '';
+
+  // cursor custom
+  var cursor = $('cursor');
+  document.addEventListener('mousemove', function (e) {
+    cursor.style.transform = 'translate(' + e.clientX + 'px,' + e.clientY + 'px)';
+  });
+
+  function setMsg(t, c) { var m = $('msg'); m.textContent = t || ''; m.className = 'msg ' + (c || ''); }
+
+  function applyMode(m, name) {
+    mode = (m === 'register') ? 'register' : 'login';
+    if (name) $('pname').textContent = name;
+    if (mode === 'register') {
+      $('subtitle').textContent = 'Înregistrare';
+      $('emailWrap').style.display = '';
+      $('confirmWrap').style.display = '';
+      $('submit').textContent = 'Creează cont';
+    } else {
+      $('subtitle').textContent = 'Autentificare';
+      $('emailWrap').style.display = 'none';
+      $('confirmWrap').style.display = 'none';
+      $('submit').textContent = 'Intră în joc';
+    }
+    setMsg('', '');
+    (mode === 'register' ? $('email') : $('pass')).focus();
+  }
+
+  function post(body) {
+    return fetch(BASE + '/nui/callback/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain', 'X-NUI-Token': TOKEN },
+      body: body
+    });
+  }
+
+  function submit() {
+    if (busy) return;
+    var pass = $('pass').value;
+    if (pass.length < 3 || pass.length > 32) { setMsg('Parola: între 3 și 32 caractere.', 'err'); $('pass').focus(); return; }
+    if (pass.indexOf('|') !== -1) { setMsg('Parola nu poate conține „|".', 'err'); return; }
+    var email = $('email').value.trim();
+    if (mode === 'register') {
+      if (!/^[^\s|'"@]+@[^\s|'"@]+\.[^\s|'"@]+$/.test(email)) { setMsg('Email invalid.', 'err'); $('email').focus(); return; }
+      var c = $('confirm').value;
+      if (pass !== c) { setMsg('Parolele nu coincid.', 'err'); $('confirm').focus(); return; }
+    }
+    busy = true; $('submit').disabled = true;
+    setMsg(mode === 'register' ? 'Se creează contul…' : 'Se verifică…', '');
+    post('submit|' + pass + '|' + $('confirm').value + '|' + email).catch(function () {
+      busy = false; $('submit').disabled = false; setMsg('Eroare de rețea.', 'err');
+    });
+  }
+  $('submit').addEventListener('click', submit);
+  $('email').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('pass').focus(); } });
+  $('pass').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (mode === 'register') $('confirm').focus(); else submit(); }
+  });
+  $('confirm').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+
+  // raspuns / init de la server
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || !d.type) return;
+    if (d.type === 'init')  applyMode(d.mode, d.name);
+    if (d.type === 'error') { busy = false; $('submit').disabled = false; setMsg(d.msg || 'Eroare.', 'err'); }
+    if (d.type === 'ok')    setMsg('Conectat!', 'ok');
+  });
+
+  // anunta serverul ca pagina e gata -> primim numele + modul (handshake)
+  post('ready');
+  $('pass').focus();
+})();
+</script>
+</body>
+</html>
