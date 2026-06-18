@@ -168,6 +168,62 @@
     color: #f1f5f9;
     text-shadow: 0 1px 2px rgba(0,0,0,0.8);
   }
+
+  /* ================= FULL-SCREEN: OnPlayerConnect / OnPlayerDeath ================= */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease-out;
+  }
+  .overlay.visible { opacity: 1; visibility: visible; }
+
+  #connect-screen {
+    background: radial-gradient(circle at center, rgba(10, 12, 15, 0.85), rgba(5, 6, 8, 0.95));
+  }
+  #connect-screen .logo {
+    font-size: clamp(28px, 5vmin, 56px);
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #f1f5f9;
+    text-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+  }
+  #connect-screen .welcome-msg {
+    font-size: clamp(14px, 1.8vmin, 22px);
+    color: #cbd5e1;
+    margin-top: clamp(8px, 1vmin, 14px);
+  }
+  #connect-screen .player-name { color: #4ade80; font-weight: 700; }
+
+  #death-screen {
+    background: radial-gradient(ellipse at center, rgba(80, 0, 0, 0.25), rgba(5, 0, 0, 0.85));
+  }
+  #death-screen .death-title {
+    font-size: clamp(26px, 5vmin, 52px);
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #ef4444;
+    text-shadow: 0 0 24px rgba(239, 68, 68, 0.6);
+  }
+  #death-screen .death-info {
+    font-size: clamp(14px, 1.8vmin, 20px);
+    color: #e2e8f0;
+    margin-top: clamp(6px, 1vmin, 12px);
+  }
+  #death-screen .killer-name, #death-screen .weapon-name { color: #fbbf24; font-weight: 700; }
+  #death-screen .respawn-count {
+    margin-top: clamp(14px, 2vmin, 28px);
+    font-size: clamp(34px, 6vmin, 64px);
+    font-weight: 800;
+    color: #f87171;
+    font-variant-numeric: tabular-nums;
+  }
 </style>
 </head>
 <body>
@@ -245,6 +301,19 @@
     </div>
 
   </div>
+
+  <!-- ONPLAYERCONNECT: ecran de bun-venit -->
+  <div id="connect-screen" class="overlay">
+    <div class="logo">PulseHUD</div>
+    <div class="welcome-msg">Bine ai venit, <span class="player-name" id="connect-player-name">Player</span>!</div>
+  </div>
+
+  <!-- ONPLAYERDEATH: ecran de moarte + countdown respawn -->
+  <div id="death-screen" class="overlay">
+    <div class="death-title">AI FOST ELIMINAT</div>
+    <div class="death-info">Ucis de <span class="killer-name" id="death-killer-name">lume</span> cu <span class="weapon-name" id="death-weapon-name">—</span></div>
+    <div class="respawn-count" id="death-respawn-count">5</div>
+  </div>
 </div>
 
 <script>
@@ -311,6 +380,55 @@
 
   function showHUD() { document.querySelector('.hud').classList.remove('hidden'); }
   function hideHUD() { document.querySelector('.hud').classList.add('hidden'); }
+
+  // ---------- OnPlayerConnect: ecran de bun-venit ----------
+  // Apelat o singura data, cand jucatorul local s-a conectat la server.
+  // Daca durationMs e dat, ecranul se ascunde automat dupa atat timp,
+  // altfel trebuie apelat explicit hideConnectScreen() (ex. la primul spawn).
+  let connectHideTimer = null;
+
+  function showConnectScreen(playerName, durationMs) {
+    document.getElementById('connect-player-name').textContent = playerName || 'Player';
+    document.getElementById('connect-screen').classList.add('visible');
+    clearTimeout(connectHideTimer);
+    if (durationMs !== undefined) {
+      connectHideTimer = setTimeout(hideConnectScreen, durationMs);
+    }
+  }
+
+  function hideConnectScreen() {
+    clearTimeout(connectHideTimer);
+    document.getElementById('connect-screen').classList.remove('visible');
+  }
+
+  // ---------- OnPlayerDeath: ecran de moarte + countdown respawn ----------
+  // killerName/weaponName pot fi omise (ex. moarte din cadere/inec), caz in
+  // care textul rămâne pe valorile default ("lume" / "—").
+  let deathRespawnTimer = null;
+
+  function showDeathScreen(killerName, weaponName, respawnSeconds) {
+    document.getElementById('death-killer-name').textContent = killerName || 'lume';
+    document.getElementById('death-weapon-name').textContent = weaponName || '—';
+
+    let remaining = respawnSeconds === undefined ? 5 : respawnSeconds;
+    const countEl = document.getElementById('death-respawn-count');
+    countEl.textContent = remaining;
+    document.getElementById('death-screen').classList.add('visible');
+
+    clearInterval(deathRespawnTimer);
+    deathRespawnTimer = setInterval(() => {
+      remaining--;
+      countEl.textContent = Math.max(remaining, 0);
+      if (remaining <= 0) {
+        hideDeathScreen();
+      }
+    }, 1000);
+  }
+
+  function hideDeathScreen() {
+    clearInterval(deathRespawnTimer);
+    document.getElementById('death-screen').classList.remove('visible');
+  }
 
   // Demo (sterge in productie)
   setHealth(76); setArmor(40); setWater(58); setFood(85);
