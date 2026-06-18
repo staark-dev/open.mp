@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PulseHUD</title>
+<title>Fragged</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -228,17 +228,24 @@
   /* ================= FULL-SCREEN: Login / Register ================= */
   /* Singurul ecran interactiv -> are nevoie de pointer-events, restul HUD-ului ramane click-through. */
   .auth-overlay {
-    background: rgba(5, 6, 8, 0.92);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(6, 182, 212, 0.28));
+    backdrop-filter: blur(10px);
     pointer-events: auto;
   }
 
   .auth-panel {
-    width: clamp(260px, 26vmin, 380px);
-    padding: clamp(20px, 3vmin, 32px);
+    width: clamp(360px, 42vmin, 620px);
+    padding: clamp(16px, 2vmin, 24px) clamp(24px, 3vmin, 36px);
     display: flex;
     flex-direction: column;
-    gap: clamp(10px, 1.4vmin, 16px);
+    gap: clamp(8px, 1vmin, 12px);
   }
+
+  .auth-row {
+    display: flex;
+    gap: clamp(10px, 1.4vmin, 18px);
+  }
+  .auth-row .auth-field { flex: 1; }
 
   .auth-logo {
     font-size: clamp(20px, 3vmin, 30px);
@@ -377,7 +384,7 @@
 
   <!-- ONPLAYERCONNECT: ecran de bun-venit -->
   <div id="connect-screen" class="overlay">
-    <div class="logo">PulseHUD</div>
+    <div class="logo">Fragged</div>
     <div class="welcome-msg">Bine ai venit, <span class="player-name" id="connect-player-name">Player</span>!</div>
   </div>
 
@@ -391,7 +398,7 @@
   <!-- LOGIN / REGISTER -->
   <div id="auth-screen" class="overlay auth-overlay">
     <div class="auth-panel panel">
-      <div class="auth-logo">PulseHUD</div>
+      <div class="auth-logo">Fragged</div>
       <div class="auth-title" id="auth-title">Acest cont exista, introdu parola</div>
 
       <div class="auth-field">
@@ -399,14 +406,16 @@
         <input type="text" id="auth-username" readonly>
       </div>
 
-      <div class="auth-field">
-        <label>Parolă</label>
-        <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
-      </div>
+      <div class="auth-row">
+        <div class="auth-field">
+          <label>Parolă</label>
+          <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
 
-      <div class="auth-field" id="auth-confirm-field" style="display: none;">
-        <label>Confirmă parola</label>
-        <input type="password" id="auth-confirm-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+        <div class="auth-field" id="auth-confirm-field" style="display: none;">
+          <label>Confirmă parola</label>
+          <input type="password" id="auth-confirm-password" placeholder="••••••••" onkeydown="if (event.key === 'Enter') submitAuth()">
+        </div>
       </div>
 
       <div class="auth-error" id="auth-error"></div>
