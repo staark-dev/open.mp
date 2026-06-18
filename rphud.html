@@ -66,6 +66,17 @@
   .star.filled { fill:#fbbf24; }
   .star.empty { fill:rgba(255,255,255,0.15); }
 
+  #weapon-row { gap:clamp(8px,1.1vmin,14px); }
+  #weapon-row .icon { width:clamp(14px,1.8vmin,22px); height:clamp(14px,1.8vmin,22px); flex-shrink:0; }
+  #weapon-row .weapon-name {
+    font-size:clamp(10px,1.2vmin,14px); color:#cbd5e1;
+    text-transform:uppercase; letter-spacing:1px; margin-right:2px; white-space:nowrap;
+  }
+  #weapon-row .ammo {
+    font-family:'Consolas','Cascadia Code',ui-monospace,monospace;
+    font-size:clamp(12px,1.5vmin,18px); font-weight:700; color:#fbbf24; font-variant-numeric:tabular-nums;
+  }
+
   #time-row {
     flex-direction:column; align-items:flex-end; gap:clamp(2px,0.3vmin,4px);
     padding:clamp(7px,1vmin,12px) clamp(10px,1.4vmin,18px);
@@ -140,6 +151,12 @@
     <div id="money" class="panel stat-row">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
       <span class="label" id="moneyVal">$0</span>
+    </div>
+
+    <div id="weapon-row" class="panel stat-row">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M3 13l4-4 2 2-4 4-2-2z"/><path d="M9 11l6-6 4 4-6 6"/><path d="M16 6l2-2"/></svg>
+      <span class="weapon-name" id="weaponName">Pumn</span>
+      <span class="ammo" id="weaponAmmo"></span>
     </div>
 
     <div id="wanted-row" class="panel stat-row hidden">
@@ -238,6 +255,12 @@
   function setClock(t) { $('clock').textContent = t; }
   function setZone(z)  { $('zone').textContent = z; }
 
+  // Arma curenta. Pentru pumn (sau orice arma fara munitie) lasa ammo gol/-1.
+  function setWeapon(name, ammo) {
+    $('weaponName').textContent = name || 'Pumn';
+    $('weaponAmmo').textContent = (ammo === -1 || ammo === undefined || ammo === null || ammo === '') ? '' : ammo;
+  }
+
   // Wanted level + show/hide generic API (la fel ca in pulsehud.html), pot fi
   // apelate direct din C++ via ExecuteJavaScript SAU prin contractul de mesaje
   // de mai jos (campul "wanted"/"visible" din update).
@@ -271,6 +294,7 @@
       if ('time'    in d) setClock(d.time);
       if ('zone'    in d) setZone(d.zone);
       if ('wanted'  in d) setWantedLevel(d.wanted);
+      if ('weapon'  in d) setWeapon(d.weapon, d.ammo);
       return;
     }
     // Compat cu mesajele simple {type:'setX', value:..}
@@ -281,6 +305,7 @@
     if (d.type === 'setFatigue') setFatigue(d.value);
     if (d.type === 'setMoney')   setMoney(d.value);
     if (d.type === 'setWanted')  setWantedLevel(d.value);
+    if (d.type === 'setWeapon')  setWeapon(d.name, d.ammo);
     if (d.type === 'setVisible') setVisible(d.id, d.visible);
   }
   window.addEventListener('message', function (e) { handle(e.data); });
@@ -290,12 +315,14 @@
 
   if (location.search.indexOf('demo') !== -1) {
     var hp = 100, mny = 12450, fd = 82, wt = 64, ob = 20, wanted = 0;
-    setMoney(mny); setZone('Los Santos');
+    var guns = [['Pumn', -1], ['Deagle', 35], ['AK-47', 90], ['Sniper', 6]], gi = 0;
+    setMoney(mny); setZone('Los Santos'); setWeapon(guns[0][0], guns[0][1]);
     setInterval(function () {
       hp = Math.max(15, hp - Math.random() * 4); fd = Math.max(0, fd - 0.4);
       wt = Math.max(0, wt - 0.6); ob = Math.min(100, ob + 0.5);
       if (Math.random() < 0.2) { mny += Math.round((Math.random() - 0.3) * 800); setMoney(mny); }
       if (Math.random() < 0.05) { wanted = (wanted + 1) % 7; setWantedLevel(wanted); }
+      if (Math.random() < 0.08) { gi = (gi + 1) % guns.length; setWeapon(guns[gi][0], guns[gi][1]); }
       setHealth(hp); setArmor(45); setWater(wt); setFood(fd); setFatigue(ob);
       var n = new Date(); setClock(('0' + n.getHours()).slice(-2) + ':' + ('0' + n.getMinutes()).slice(-2));
     }, 700);
