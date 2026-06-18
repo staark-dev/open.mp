@@ -68,6 +68,11 @@
   #money .label { color: #4ade80; }
   #time .label { color: #e2e8f0; font-variant-numeric: tabular-nums; }
 
+  #wanted-row { gap: clamp(2px, 0.5vmin, 6px); padding: clamp(5px, 0.7vmin, 9px) clamp(8px, 1.3vmin, 16px); }
+  .star { width: clamp(13px, 1.7vmin, 20px); height: clamp(13px, 1.7vmin, 20px); flex-shrink: 0; transition: fill 0.2s ease-out; }
+  .star.filled { fill: #fbbf24; }
+  .star.empty { fill: rgba(255, 255, 255, 0.15); }
+
   #weapon-row { gap: clamp(8px, 1.1vmin, 14px); }
   #weapon-row .weapon-name {
     font-size: clamp(10px, 1.2vmin, 14px);
@@ -175,6 +180,15 @@
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9h3.5a2 2 0 0 1 0 4H9m3 0h2.5M11 7v2m0 6v2"/></svg>
       <span class="label" id="money-label">$0</span>
     </div>
+
+    <div id="wanted-row" class="panel stat-row">
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+      <svg class="star empty" viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.8-6.3 3.8 1.7-7-5.4-4.7 7.1-.6z"/></svg>
+    </div>
   </div>
 
   <!-- BOTTOM RIGHT: HP / Armor / Water / Food (stanga e minimap-ul jocului) -->
@@ -268,9 +282,18 @@
     document.getElementById('time-label').textContent = h + ':' + m;
   }
 
+  function setWantedLevel(level) {
+    level = Math.max(0, Math.min(6, level));
+    document.querySelectorAll('#wanted-row .star').forEach((star, i) => {
+      star.classList.toggle('filled', i < level);
+      star.classList.toggle('empty', i >= level);
+    });
+  }
+
   // Demo (sterge in productie)
   setHealth(76); setArmor(40); setWater(58); setFood(85);
   setMoney(125430); setWeapon('Deagle', 35); setTime(14, 27);
+  setWantedLevel(3);
 </script>
 </body>
 </html>
