@@ -249,26 +249,13 @@
     text-shadow: 0 0 16px rgba(74, 222, 128, 0.4);
   }
 
-  .auth-tabs {
-    display: flex;
-    gap: clamp(4px, 0.6vmin, 8px);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: clamp(6px, 0.8vmin, 10px);
-    padding: clamp(3px, 0.4vmin, 5px);
-  }
-
-  .auth-tab {
-    flex: 1;
-    padding: clamp(6px, 0.9vmin, 10px);
-    border: none;
-    border-radius: clamp(5px, 0.6vmin, 8px);
-    background: transparent;
-    color: #94a3b8;
-    font-size: clamp(12px, 1.4vmin, 15px);
+  .auth-title {
+    text-align: center;
+    font-size: clamp(13px, 1.6vmin, 17px);
     font-weight: 600;
-    cursor: pointer;
+    color: #cbd5e1;
+    letter-spacing: 0.3px;
   }
-  .auth-tab.active { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
 
   .auth-field { display: flex; flex-direction: column; gap: clamp(4px, 0.5vmin, 6px); }
   .auth-field label {
@@ -405,11 +392,7 @@
   <div id="auth-screen" class="overlay auth-overlay">
     <div class="auth-panel panel">
       <div class="auth-logo">PulseHUD</div>
-
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Login</button>
-        <button type="button" class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Register</button>
-      </div>
+      <div class="auth-title" id="auth-title">Acest cont exista, introdu parola</div>
 
       <div class="auth-field">
         <label>Username</label>
@@ -548,16 +531,20 @@
   }
 
   // ---------- Login / Register ----------
-  // Username e read-only (vine din jocul/launcher-ul local), aici se cere
-  // doar parola. Trimiterea efectiva catre server se face din C++, prin
-  // bridge-ul JS<->native (ex. window.pulseHUD.submit(mode, data)) - vezi
+  // Niciun tab - serverul decide: verifica in DB daca username-ul are deja
+  // cont si apeleaza showLoginScreen() sau showRegisterScreen() in
+  // consecinta. Username e read-only (vine din jocul/launcher-ul local).
+  // Trimiterea efectiva catre server se face din C++, prin bridge-ul
+  // JS<->native (ex. window.pulseHUD.submit(mode, data)) - vezi
   // recomandarea cu extensia V8, nu e implementata in acest mockup.
   let authMode = 'login';
 
   function showLoginScreen(username) {
     authMode = 'login';
     document.getElementById('auth-username').value = username || '';
-    updateAuthMode();
+    document.getElementById('auth-title').textContent = 'Acest cont exista, introdu parola';
+    document.getElementById('auth-confirm-field').style.display = 'none';
+    document.getElementById('auth-submit').textContent = 'Conectare';
     clearAuthError();
     document.getElementById('auth-screen').classList.add('visible');
   }
@@ -565,27 +552,15 @@
   function showRegisterScreen(username) {
     authMode = 'register';
     document.getElementById('auth-username').value = username || '';
-    updateAuthMode();
+    document.getElementById('auth-title').textContent = 'Cont nou, alege o parola';
+    document.getElementById('auth-confirm-field').style.display = 'flex';
+    document.getElementById('auth-submit').textContent = 'Înregistrare';
     clearAuthError();
     document.getElementById('auth-screen').classList.add('visible');
   }
 
   function hideAuthScreen() {
     document.getElementById('auth-screen').classList.remove('visible');
-  }
-
-  function switchAuthTab(mode) {
-    authMode = mode;
-    updateAuthMode();
-    clearAuthError();
-  }
-
-  function updateAuthMode() {
-    const isRegister = authMode === 'register';
-    document.getElementById('tab-login').classList.toggle('active', !isRegister);
-    document.getElementById('tab-register').classList.toggle('active', isRegister);
-    document.getElementById('auth-confirm-field').style.display = isRegister ? 'flex' : 'none';
-    document.getElementById('auth-submit').textContent = isRegister ? 'Înregistrare' : 'Conectare';
   }
 
   function setAuthError(message) {
@@ -597,11 +572,7 @@
   function setAuthLoading(loading) {
     const btn = document.getElementById('auth-submit');
     btn.disabled = loading;
-    if (loading) {
-      btn.textContent = 'Se trimite...';
-    } else {
-      updateAuthMode();
-    }
+    btn.textContent = loading ? 'Se trimite...' : (authMode === 'register' ? 'Înregistrare' : 'Conectare');
   }
 
   function submitAuth() {
